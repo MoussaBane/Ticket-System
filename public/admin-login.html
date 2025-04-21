@@ -63,7 +63,9 @@
               />
             </div>
             <div class="mb-3">
-              <label for="registerPassword" class="form-label">Mot de passe</label>
+              <label for="registerPassword" class="form-label"
+                >Mot de passe</label
+              >
               <input
                 type="password"
                 id="registerPassword"
@@ -89,28 +91,37 @@
         document.getElementById("registerForm").classList.toggle("d-none");
       }
 
-      function login() {
-        const email = document.getElementById("loginEmail").value;
-        const password = document.getElementById("loginPassword").value;
-        const errorMsg = document.getElementById("loginError");
+      router.post("/login", async (req, res) => {
+        const { email, password } = req.body;
 
-        fetch("/admin/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password: password }),
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error("Identifiants incorrects");
-            return res.json();
-          })
-          .then((data) => {
-            localStorage.setItem("token", data.token);
-            window.location.href = "/admin.html";
-          })
-          .catch((err) => {
-            errorMsg.textContent = err.message;
-          });
-      }
+        try {
+          
+          const user = await User.findOne({ email });
+          if (!user)
+            return res.status(401).json({ message: "Utilisateur non trouvé" });
+
+          
+          const isMatch = await bcrypt.compare(password, user.password);
+          if (!isMatch)
+            return res.status(401).json({ message: "Mot de passe incorrect" });
+
+          
+          const token = jwt.sign(
+            {
+              id: user._id,
+              nom: user.nom,
+              prenom: user.prenom,
+              email: user.email,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "3h" }
+          );
+
+          res.json({ token });
+        } catch (err) {
+          res.status(500).json({ message: "Erreur serveur" });
+        }
+      });
 
       function register() {
         const nom = document.getElementById("nom").value;
