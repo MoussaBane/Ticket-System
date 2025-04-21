@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: ticket-system
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: DB_USERNAME
+        value: banemoussa2001
+      - key: DB_PASSWORD
+        value: D56uTjtyrXYdUDQm
+      - key: PORT
+        value: 10000
