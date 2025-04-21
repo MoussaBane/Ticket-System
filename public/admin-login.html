@@ -97,7 +97,7 @@
         fetch("/admin/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, motDePasse: password }),
+          body: JSON.stringify({ email, password: password }),
         })
           .then((res) => {
             if (!res.ok) throw new Error("Identifiants incorrects");
@@ -122,7 +122,7 @@
         fetch("/admin/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nom, prenom, email, motDePasse: password }),
+          body: JSON.stringify({ nom, prenom, email, password: password }),
         })
           .then((res) => {
             if (!res.ok) throw new Error("Inscription échouée");
