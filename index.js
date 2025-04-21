@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
+const { Parser } = require("json2csv");
 const Ticket = require("./models/Ticket");
 
 const app = express();
@@ -50,6 +51,50 @@ app.get("/validate", async (req, res) => {
   await ticket.save();
   res.send("✅ Code validé. Bienvenue !");
 });
+
+// Endpoint pour afficher tous les tickets (accessible uniquement par l'admin)
+app.get("/admin/tickets", async (req, res) => {
+  try {
+    const tickets = await Ticket.find(); // Récupère tous les tickets
+    res.json(tickets); // Retourne les tickets en JSON
+  } catch (err) {
+    res.status(500).send("Erreur lors de la récupération des tickets.");
+  }
+});
+
+// Endpoint pour marquer un ticket comme utilisé (accessible uniquement par l'admin)
+app.post("/admin/tickets/:id/use", async (req, res) => {
+  try {
+    const ticket = await Ticket.findByIdAndUpdate(
+      req.params.id,
+      { isUsed: true },
+      { new: true }
+    );
+    res.json(ticket);
+  } catch (err) {
+    res.status(500).send("Erreur lors de la mise à jour du ticket.");
+  }
+});
+
+// Exportation des tickets au format CSV (accessible uniquement par l'admin)
+app.get("/admin/export-csv", async (req, res) => {
+  try {
+    const tickets = await Ticket.find();
+    const fields = ["_id", "code", "isUsed", "createdAt"];
+    const opts = { fields };
+
+    const parser = new Parser(opts);
+    const csv = parser.parse(tickets);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("tickets.csv");
+    return res.send(csv);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Erreur lors de l’export");
+  }
+});
+  
 
 // Démarrer le serveur
 const PORT = process.env.PORT;
