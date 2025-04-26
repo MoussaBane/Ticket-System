@@ -1,18 +1,15 @@
-const jwt = require('jsonwebtoken');
+// middlewares/adminAuth.js
+const jwt = require("jsonwebtoken");
 
 module.exports = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Accès non autorisé' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
   try {
+    const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.userData = decoded;
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'Jeton invalide' });
+    return res.status(401).json({
+      message: "Authentification échouée",
+    });
   }
 };

@@ -8,6 +8,20 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
+
+    <style>
+      body {
+        background-image: url("/background.jpg");
+        background-size: cover;
+        background-position: center center;
+        color: rgb(0, 0, 0);
+      }
+
+      .card {
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+      }
+    </style>
   </head>
   <body class="bg-light">
     <div class="container mt-5">
@@ -91,37 +105,37 @@
         document.getElementById("registerForm").classList.toggle("d-none");
       }
 
-      router.post("/login", async (req, res) => {
-        const { email, password } = req.body;
+      function login() {
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+        const errorMsg = document.getElementById("loginError");
 
-        try {
-          
-          const user = await User.findOne({ email });
-          if (!user)
-            return res.status(401).json({ message: "Utilisateur non trouvé" });
-
-          
-          const isMatch = await bcrypt.compare(password, user.password);
-          if (!isMatch)
-            return res.status(401).json({ message: "Mot de passe incorrect" });
-
-          
-          const token = jwt.sign(
-            {
-              id: user._id,
-              nom: user.nom,
-              prenom: user.prenom,
-              email: user.email,
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "3h" }
-          );
-
-          res.json({ token });
-        } catch (err) {
-          res.status(500).json({ message: "Erreur serveur" });
+        // Validation basique
+        if (!email || !password) {
+          errorMsg.textContent = "Veuillez remplir tous les champs";
+          return;
         }
-      });
+
+        fetch("/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+          .then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || "Identifiants incorrects");
+            }
+            return data;
+          })
+          .then((data) => {
+            localStorage.setItem("token", data.token);
+            window.location.href = "/admin.html";
+          })
+          .catch((err) => {
+            errorMsg.textContent = err.message;
+          });
+      }
 
       function register() {
         const nom = document.getElementById("nom").value;
@@ -135,9 +149,12 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nom, prenom, email, password: password }),
         })
-          .then((res) => {
-            if (!res.ok) throw new Error("Inscription échouée");
-            return res.json();
+          .then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || "Inscription échouée");
+            }
+            return data;
           })
           .then(() => {
             msg.style.color = "green";
