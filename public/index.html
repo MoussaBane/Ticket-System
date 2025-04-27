@@ -1,63 +1,309 @@
 <!DOCTYPE html>
 <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <title>AfroVibe Night Validation de billet</title>
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-            rel="stylesheet">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AfroVibe Night - Validation de billet</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
+    <style>
+      :root {
+        --primary-color: #6f42c1;
+        --secondary-color: #f8f9fa;
+      }
 
-        <style>
-            /* body {
-                background: linear-gradient(to right, #ff7e5f, #feb47b); 
-                color: white;
-                font-family: 'Arial', sans-serif;
-            } */
+      body {
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+          url("/background.jpg") no-repeat center center fixed;
+        background-size: cover;
+        color: white;
+        min-height: 100vh;
+      }
 
-            header {
-                text-align: center;
-                padding: 20px;
-            }
+      .validation-card {
+        background-color: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        max-width: 600px;
+        margin: 0 auto;
+      }
 
-            .container {
-                margin-top: 50px;
-                text-align: center;
-            }
+      .btn-validate {
+        background-color: var(--primary-color);
+        border: none;
+        transition: all 0.3s;
+      }
 
-            body {
-                background-image: url("/background.jpg");
-                background-size: cover;
-                background-position: center center;
-                color: white;
-            }
+      .btn-validate:hover {
+        background-color: #5a32a8;
+        transform: translateY(-2px);
+      }
 
-        </style>
-    </head>
-    <body class="bg-light">
+      .result-container {
+        min-height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-        <header class="text-center my-4">
-            <img src="/logo.png" alt="Logo" width="150">
-        </header>
-          
-        <div class="container mt-5 text-center">
-            <h1 class="text-center mb-4">🎟️ AEEMT AfroVibe Night Validation de Billet 🎟️</h1>
-            <div class="row justify-content-center">
-                <div class="col-md-6">
-                    <input type="text" id="codeInput" class="form-control" placeholder="Entrez votre code" required>
-                    <button class="btn btn-info mt-2 w-100" onclick="valider()">Valider</button>
-                </div>
-            <div id="result" class="mt-4 fw-bold"></div>
+      .admin-link {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+      }
+
+      .qr-btn {
+        border-left: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-5">
+      <header class="text-center mb-5">
+        <img
+          src="/logo.png"
+          alt="Logo AfroVibe"
+          class="img-fluid"
+          style="max-height: 120px"
+        />
+        <h1 class="mt-3">🎟️ AEEMT AfroVibe Night 🎟️</h1>
+        <p class="lead">Validation de billets</p>
+      </header>
+
+      <div class="validation-card p-4 shadow-lg">
+        <div class="row justify-content-center">
+          <div class="col-md-8">
+            <div class="mb-3">
+              <label for="codeInput" class="form-label"
+                >Entrez le code du billet</label
+              >
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="codeInput"
+                  class="form-control form-control-lg"
+                  placeholder="Code à 8 caractères"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary qr-btn"
+                  type="button"
+                  onclick="openQRScanner()"
+                >
+                  <i class="bi bi-qr-code-scan"></i>
+                </button>
+                <button
+                  class="btn btn-validate"
+                  type="button"
+                  onclick="valider()"
+                >
+                  <i class="bi bi-check-circle"></i> Valider
+                </button>
+              </div>
+              <div class="form-text text-white-50 mt-1">
+                Entrez le code imprimé ou scannez le QR code
+              </div>
+            </div>
+
+            <div id="result" class="result-container mt-4">
+              <!-- Résultat apparaîtra ici -->
+            </div>
+          </div>
         </div>
+      </div>
 
-        <script>
-            async function valider() {
-            const code = document.getElementById('codeInput').value;
-            const res = await fetch(`/validate?code=${code}`);
-            const text = await res.text();
-            document.getElementById('result').innerText = text;
+      <!-- Bouton Admin (en bas à droite) -->
+      <a
+        href="/admin-auth.html"
+        class="btn btn-danger admin-link rounded-circle shadow"
+        title="Espace Admin"
+      >
+        <i class="bi bi-lock-fill" style="font-size: 1.5rem"></i>
+      </a>
+    </div>
+
+    <!-- Scanner QR Code Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Scanner un billet</h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body text-center">
+            <div id="qrReader" style="width: 100%"></div>
+            <div id="qrResult" class="mt-3"></div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+      // Fonction de validation améliorée
+      async function valider() {
+        const code = document.getElementById("codeInput").value.trim();
+        const resultDiv = document.getElementById("result");
+
+        // Validation basique
+        if (!code || code.length !== 8) {
+          resultDiv.innerHTML = `
+                    <div class="alert alert-warning w-100">
+                        <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 8 caractères
+                    </div>
+                `;
+          return;
+        }
+
+        // Afficher le loader
+        resultDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Validation en cours...</span>
+                    </div>
+                    <p>Validation en cours...</p>
+                </div>
+            `;
+
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `/validate?code=${encodeURIComponent(code)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
             }
-        </script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    </body>
+          );
+
+          if (!response.ok) {
+            throw new Error("Erreur de validation");
+          }
+
+          const data = await response.json();
+
+          const date = new Date(data.usedAt || new Date()).toLocaleString();
+          resultDiv.innerHTML = `
+                    <div class="alert alert-success w-100">
+                        <h4><i class="bi bi-check-circle-fill"></i> ${
+                          data.message || "Billet validé!"
+                        }</h4>
+                        <hr>
+                        <p>Code: <strong>${code}</strong></p>
+                        <p>Validé le: <strong>${date}</strong></p>
+                    </div>
+                `;
+
+          // Effacer le champ après validation
+          document.getElementById("codeInput").value = "";
+        } catch (error) {
+          console.error("Erreur:", error);
+          resultDiv.innerHTML = `
+                    <div class="alert alert-danger w-100">
+                        <i class="bi bi-x-circle-fill"></i> ${
+                          error.message || "Erreur lors de la validation"
+                        }
+                    </div>
+                `;
+        }
+      }
+
+      // Activer la validation avec la touche Entrée
+      document
+        .getElementById("codeInput")
+        .addEventListener("keypress", function (e) {
+          if (e.key === "Enter") {
+            valider();
+          }
+        });
+
+      // Initialiser le scanner QR quand le modal s'ouvre
+      const qrModal = new bootstrap.Modal(document.getElementById("qrModal"));
+      let html5QrCode;
+
+      document
+        .getElementById("qrModal")
+        .addEventListener("shown.bs.modal", function () {
+          html5QrCode = new Html5Qrcode("qrReader");
+          const qrResult = document.getElementById("qrResult");
+
+          html5QrCode
+            .start(
+              { facingMode: "environment" },
+              {
+                fps: 10,
+                qrbox: 250,
+              },
+              (decodedText) => {
+                // Arrêter le scanner quand un code est détecté
+                html5QrCode.stop().then(() => {
+                  qrResult.innerHTML = `
+                            <div class="alert alert-info">
+                                <i class="bi bi-check-circle"></i> Code détecté: ${decodedText}
+                            </div>
+                        `;
+
+                  // Remplir le champ et valider automatiquement
+                  document.getElementById("codeInput").value = decodedText;
+                  setTimeout(() => {
+                    valider();
+                    qrModal.hide();
+                  }, 1000);
+                });
+              },
+              (errorMessage) => {
+                // Ignorer les erreurs de parsing
+              }
+            )
+            .catch((err) => {
+              qrResult.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Erreur: ${err}
+                    </div>
+                `;
+            });
+        });
+
+      // Arrêter le scanner quand le modal se ferme
+      document
+        .getElementById("qrModal")
+        .addEventListener("hidden.bs.modal", function () {
+          if (html5QrCode) {
+            html5QrCode
+              .stop()
+              .catch((err) => console.log("Arrêt du scanner:", err));
+          }
+          document.getElementById("qrResult").innerHTML = "";
+        });
+
+      // Fonction pour ouvrir le scanner QR
+      function openQRScanner() {
+        qrModal.show();
+      }
+    </script>
+  </body>
 </html>

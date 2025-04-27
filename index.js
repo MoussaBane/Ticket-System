@@ -14,13 +14,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// MongoDB connection
-const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@ticketsystemdb.6gbpr2r.mongodb.net/TicketSystemDB?retryWrites=true&w=majority&appName=TicketSystemDB`;
-mongoose
-  .connect(uri)
-  .then(() => console.log("✅ MongoDB connecté"))
-  .catch((err) => console.error("❌ Erreur de connexion MongoDB:", err));
-
 // Les routes pour l'authentification admin
 app.use("/admin", adminAuthRoutes);
 
@@ -37,6 +30,14 @@ app.get("/generate-tickets", adminAuth, async (req, res) => {
     codes.push({ code });
   }
 
+  // const generateCode = () => {
+  //   return Array.from({length: 8}, () =>
+  //     characters.charAt(Math.floor(Math.random() * characters.length))
+  //     .join('');
+  // };
+
+  // const codes = Array.from({length: 300}, () => ({ code: generateCode() }));
+
   await Ticket.insertMany(codes);
   res.send("300 tickets générés");
 });
@@ -44,19 +45,49 @@ app.get("/generate-tickets", adminAuth, async (req, res) => {
 // Vérification d'un code
 app.get("/validate", adminAuth, async (req, res) => {
   const { code } = req.query;
-  const ticket = await Ticket.findOne({ code });
 
-  if (!ticket) return res.send("❌ Code invalide.");
-  if (ticket.isUsed)
-    return res.send(
-      `⛔ Code déjà utilisé le ${ticket.usedAt.toLocaleString()}`
+  try {
+    const ticket = await Ticket.findOne({ code });
+    if (!ticket) return res.status(404).json({ message: "❌ Code invalide" });
+
+    if (ticket.isUsed) {
+      return res.json({
+        success: false,
+        message: `⛔ Code déjà utilisé le ${ticket.usedAt.toLocaleString()}`,
+        usedAt: ticket.usedAt,
+      });
+    }
+
+    const updatedTicket = await Ticket.findByIdAndUpdate(
+      ticket._id,
+      { isUsed: true, usedAt: new Date() },
+      { new: true }
     );
 
-  ticket.isUsed = true;
-  ticket.usedAt = new Date();
-  await ticket.save();
-  res.send("✅ Code validé. Bienvenue !");
+    res.json({
+      success: true,
+      message: "✅ Code validé. Bienvenue !",
+      ticket: updatedTicket,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
 });
+// app.get("/validate", adminAuth, async (req, res) => {
+//   const { code } = req.query;
+//   const ticket = await Ticket.findOne({ code });
+
+//   if (!ticket) return res.send("❌ Code invalide.");
+//   if (ticket.isUsed)
+//     return res.send(
+//       `⛔ Code déjà utilisé le ${ticket.usedAt.toLocaleString()}`
+//     );
+
+//   ticket.isUsed = true;
+//   ticket.usedAt = new Date();
+//   await ticket.save();
+//   res.send("✅ Code validé. Bienvenue !");
+// });
 
 // Validation du ticket via QR code
 app.post("/validate-ticket", adminAuth, async (req, res) => {
@@ -244,8 +275,18 @@ app.get("/admin/export-csv", adminAuth, async (req, res) => {
   }
 });
 
+// MongoDB connection
+const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@ticketsystemdb.6gbpr2r.mongodb.net/TicketSystemDB?retryWrites=true&w=majority&appName=TicketSystemDB`;
+mongoose
+  .connect(uri)
+  .then(() => console.log("✅ MongoDB connecté"))
+  .catch((err) => console.error("❌ Erreur de connexion MongoDB:", err));
+
 // Démarrer le serveur
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
-  console.log(`Serveur en ligne sur le port ${PORT}`);
+  console.log(
+    `Serveur en ligne sur le port ${PORT} : http://localhost:${PORT}`
+  );
 });
+

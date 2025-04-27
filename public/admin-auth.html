@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Authentification</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
+    <style>
+      :root {
+        --primary-color: #6f42c1;
+        --secondary-color: #f8f9fa;
+      }
+
+      body {
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+          url("/background.jpg") no-repeat center center fixed;
+        background-size: cover;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+      }
+
+      .auth-container {
+        max-width: 500px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .card {
+        background-color: rgba(255, 255, 255, 0.9);
+        border: none;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
+      }
+
+      .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+
+      .auth-toggle {
+        color: var(--primary-color);
+        cursor: pointer;
+        font-weight: 500;
+      }
+
+      .password-toggle {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        z-index: 5;
+      }
+
+      .password-container {
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="auth-container">
+        <!-- Formulaire de Connexion -->
+        <div id="loginForm" class="card p-4">
+          <div class="text-center mb-4">
+            <img src="/logo.png" alt="Logo" width="100" class="mb-3" />
+            <h3>Connexion Admin</h3>
+            <p class="text-muted">Accédez à votre tableau de bord</p>
+          </div>
+
+          <div class="mb-3">
+            <label for="loginEmail" class="form-label">Email</label>
+            <input
+              type="email"
+              id="loginEmail"
+              class="form-control"
+              placeholder="admin@email.com"
+              required
+            />
+          </div>
+
+          <div class="mb-3 password-container">
+            <label for="loginPassword" class="form-label">Mot de passe</label>
+            <input
+              type="password"
+              id="loginPassword"
+              class="form-control"
+              required
+            />
+            <i
+              class="bi bi-eye-slash password-toggle"
+              onclick="togglePassword('loginPassword', this)"
+            ></i>
+          </div>
+
+          <button onclick="login()" class="btn btn-primary w-100 py-2 mb-3">
+            <i class="bi bi-box-arrow-in-right"></i> Se connecter
+          </button>
+
+          <div id="loginError" class="alert alert-danger d-none"></div>
+
+          <div class="text-center mt-3">
+            <span>Pas encore de compte ? </span>
+            <span class="auth-toggle" onclick="toggleForms()"
+              >Créer un compte</span
+            >
+          </div>
+        </div>
+
+        <!-- Formulaire d'Inscription -->
+        <div id="registerForm" class="card p-4 d-none">
+          <div class="text-center mb-4">
+            <img src="/logo.png" alt="Logo" width="100" class="mb-3" />
+            <h3>Inscription Admin</h3>
+            <p class="text-muted">Créer un nouveau compte administrateur</p>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="nom" class="form-label">Nom</label>
+              <input type="text" id="nom" class="form-control" required />
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="prenom" class="form-label">Prénom</label>
+              <input type="text" id="prenom" class="form-control" required />
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="registerEmail" class="form-label">Email</label>
+            <input
+              type="email"
+              id="registerEmail"
+              class="form-control"
+              required
+            />
+          </div>
+
+          <div class="mb-3 password-container">
+            <label for="registerPassword" class="form-label"
+              >Mot de passe</label
+            >
+            <input
+              type="password"
+              id="registerPassword"
+              class="form-control"
+              required
+            />
+            <i
+              class="bi bi-eye-slash password-toggle"
+              onclick="togglePassword('registerPassword', this)"
+            ></i>
+          </div>
+
+          <button onclick="register()" class="btn btn-primary w-100 py-2 mb-3">
+            <i class="bi bi-person-plus"></i> S'inscrire
+          </button>
+
+          <div id="registerMsg" class="alert d-none"></div>
+
+          <div class="text-center mt-3">
+            <span>Déjà un compte ? </span>
+            <span class="auth-toggle" onclick="toggleForms()"
+              >Se connecter</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Fonction pour basculer entre les formulaires
+      function toggleForms() {
+        document.getElementById("loginForm").classList.toggle("d-none");
+        document.getElementById("registerForm").classList.toggle("d-none");
+        clearMessages();
+      }
+
+      // Fonction pour afficher/masquer le mot de passe
+      function togglePassword(inputId, icon) {
+        const input = document.getElementById(inputId);
+        if (input.type === "password") {
+          input.type = "text";
+          icon.classList.replace("bi-eye-slash", "bi-eye");
+        } else {
+          input.type = "password";
+          icon.classList.replace("bi-eye", "bi-eye-slash");
+        }
+      }
+
+      // Effacer les messages d'erreur
+      function clearMessages() {
+        document.getElementById("loginError").classList.add("d-none");
+        document.getElementById("registerMsg").classList.add("d-none");
+      }
+
+      // Valider le format email
+      function validateEmail(email) {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+      }
+
+      // Valider la force du mot de passe
+      function validatePassword(password) {
+        return password.length >= 8;
+      }
+
+      // Fonction de connexion améliorée
+      async function login() {
+        const email = document.getElementById("loginEmail").value.trim();
+        const password = document.getElementById("loginPassword").value;
+        const errorElement = document.getElementById("loginError");
+
+        // Validation
+        if (!email || !password) {
+          showError(errorElement, "Veuillez remplir tous les champs");
+          return;
+        }
+
+        if (!validateEmail(email)) {
+          showError(errorElement, "Veuillez entrer un email valide");
+          return;
+        }
+
+        try {
+          const response = await fetch("/admin/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Échec de la connexion");
+          }
+
+          // Stocker le token et rediriger
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+          window.location.href = "/admin.html";
+        } catch (error) {
+          showError(errorElement, error.message || "Une erreur est survenue");
+          console.error("Login error:", error);
+        }
+      }
+
+      // Fonction d'inscription améliorée
+      async function register() {
+        const nom = document.getElementById("nom").value.trim();
+        const prenom = document.getElementById("prenom").value.trim();
+        const email = document.getElementById("registerEmail").value.trim();
+        const password = document.getElementById("registerPassword").value;
+        const msgElement = document.getElementById("registerMsg");
+
+        // Validation
+        if (!nom || !prenom || !email || !password) {
+          showMessage(msgElement, "Veuillez remplir tous les champs", "danger");
+          return;
+        }
+
+        if (!validateEmail(email)) {
+          showMessage(msgElement, "Veuillez entrer un email valide", "danger");
+          return;
+        }
+
+        if (!validatePassword(password)) {
+          showMessage(
+            msgElement,
+            "Le mot de passe doit contenir au moins 8 caractères",
+            "danger"
+          );
+          return;
+        }
+
+        try {
+          const response = await fetch("/admin/register", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({ nom, prenom, email, password }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Échec de l'inscription");
+          }
+
+          // Afficher le succès et basculer vers le formulaire de connexion
+          showMessage(
+            msgElement,
+            "✅ Inscription réussie. Vous pouvez vous connecter.",
+            "success"
+          );
+          setTimeout(toggleForms, 2000);
+        } catch (error) {
+          showMessage(
+            msgElement,
+            error.message || "Une erreur est survenue",
+            "danger"
+          );
+          console.error("Register error:", error);
+        }
+      }
+
+      // Afficher un message d'erreur
+      function showError(element, message) {
+        element.textContent = message;
+        element.classList.remove("d-none");
+      }
+
+      // Afficher un message stylisé
+      function showMessage(element, message, type) {
+        element.innerHTML = message;
+        element.classList.remove("d-none", "alert-danger", "alert-success");
+        element.classList.add(`alert-${type}`);
+      }
+    </script>
+  </body>
+</html>
