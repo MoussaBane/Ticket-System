@@ -64,7 +64,7 @@
       }
       
       .table tbody tr:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(102, 110, 167, 0.1);
       }
       
       .pagination .page-item.active .page-link {
@@ -475,27 +475,6 @@
         };
         
         confirmModal.show();
-      }
-
-      async function validateTicket(id) {
-        try {
-          const response = await fetch(`/admin/tickets/${id}/use`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
-          });
-          
-          if (!response.ok) throw new Error("Erreur lors de la validation");
-          
-          const data = await response.json();
-          showToast('success', `Ticket ${data.code} validé avec succès`);
-          loadTickets();
-        } catch (error) {
-          console.error(error);
-          showToast('danger', error.message || "Erreur lors de la validation");
-        }
       }
 
       function showToast(type, message) {

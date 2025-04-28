@@ -201,7 +201,7 @@
           );
 
           if (!response.ok) {
-            throw new Error("Erreur de validation");
+            throw new Error("Code invalide. Veuillez réessayer.");
           }
 
           const data = await response.json();
