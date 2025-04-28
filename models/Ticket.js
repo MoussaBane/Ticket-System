@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const ticketSchema = new mongoose.Schema({
   code: { type: String, unique: true },
@@ -6,7 +6,7 @@ const ticketSchema = new mongoose.Schema({
   isAssigned: { type: Boolean, default: false }, // Ticket acheté/assigné
   assignedTo: { type: String, default: null }, // Nom de la personne
   assignedAt: { type: Date, default: null }, // Date d'assignation
-  usedAt: { type: Date, default: null }, // Date de validation
+  usedAt: { type: Date, default: null }, // Date de validation,
   createdAt: { type: Date, default: Date.now },
 });
 

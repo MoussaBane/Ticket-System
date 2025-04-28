@@ -5,3 +5,4 @@ index_copy.js
 index_copy.html
 public/admin_copy.html
 models/User_copy.js
+models/Ticket_copy.js
