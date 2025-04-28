@@ -100,6 +100,66 @@
         background-color: #ffc107; 
       }
     </style>
+    <style>
+      /* Styles complémentaires mobile */
+      @media (max-width: 768px) {
+        .display-6 {
+          font-size: 1.5rem;
+        }
+        
+        .card {
+          margin-bottom: 0.5rem;
+        }
+        
+        .card-title {
+          font-size: 0.9rem;
+          margin-bottom: 0.25rem;
+        }
+        
+        .table td, .table th {
+          padding: 0.5rem;
+          white-space: nowrap;
+        }
+        
+        .status-badge {
+          padding: 0.25rem 0.5rem;
+          font-size: 0.75rem;
+        }
+        
+        .dropdown-menu {
+          background-color: rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dropdown-item {
+          color: white;
+        }
+        
+        .dropdown-item:hover {
+          background-color: var(--primary-color);
+        }
+      }
+      
+      /* Amélioration de la visibilité sur mobile */
+      @media (max-width: 576px) {
+        .table-container {
+          border-radius: 0.5rem;
+          margin-left: -0.5rem;
+          margin-right: -0.5rem;
+          width: calc(100% + 1rem);
+        }
+        
+        .table {
+          font-size: 0.85rem;
+        }
+        
+        .btn-group .btn {
+          padding-left: 0.5rem;
+          padding-right: 0.5rem;
+        }
+      }
+    </style>
   </head>
   <body>
     <!-- Barre de navigation -->
@@ -126,111 +186,107 @@
     </nav>
 
     <div class="container py-4">
-      <div class="row mb-4">
-        <div class="col-md-3 mb-3">
+      <!-- Cartes statistiques - Version responsive -->
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3 mb-4">
+        <div class="col">
           <div class="card h-100 border-primary">
             <div class="card-body text-center">
               <h5 class="card-title text-primary"><i class="bi bi-ticket-perforated"></i> Total</h5>
-              <p id="totalCount" class="display-4 fw-bold">0</p>
+              <p id="totalCount" class="display-6 fw-bold">0</p>
             </div>
           </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col">
           <div class="card h-100 border-info">
             <div class="card-body text-center">
               <h5 class="card-title text-info"><i class="bi bi-person-check"></i> Assignés</h5>
-              <p id="assignedCount" class="display-4 fw-bold">0</p>
+              <p id="assignedCount" class="display-6 fw-bold">0</p>
               <small id="assignedPercent" class="text-muted">0%</small>
             </div>
           </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col">
           <div class="card h-100 border-success">
             <div class="card-body text-center">
               <h5 class="card-title text-success"><i class="bi bi-check-circle"></i> Présents</h5>
-              <p id="usedCount" class="display-4 fw-bold">0</p>
+              <p id="usedCount" class="display-6 fw-bold">0</p>
               <small id="usedPercent" class="text-muted">0%</small>
             </div>
           </div>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col">
           <div class="card h-100 border-warning">
             <div class="card-body text-center">
               <h5 class="card-title text-warning"><i class="bi bi-hourglass"></i> Disponibles</h5>
-              <p id="availableCount" class="display-4 fw-bold">0</p>
+              <p id="availableCount" class="display-6 fw-bold">0</p>
               <small id="availablePercent" class="text-muted">0%</small>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Outils de gestion -->
-      <div class="row mb-4 justify-content-center">
-        <!-- Colonne Recherche -->
-        <div class="col-md-auto d-flex justify-content-center mb-2 mb-md-0">
-            <div class="input-group" style="width: 100%; min-width: 250px;">
-                <span class="input-group-text bg-dark text-white">
-                    <i class="bi bi-search"></i>
-                </span>
-                <input type="text" id="searchInput"
-                    class="form-control bg-dark text-white"
-                    placeholder="Rechercher un ticket...">
-                <button class="btn btn-outline-primary" onclick="clearSearch()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
+    
+      <!-- Barre d'outils optimisée mobile -->
+      <div class="row g-2 mb-4">
+        <div class="col-12 col-md-6 col-lg-4 order-1">
+          <div class="input-group">
+            <span class="input-group-text bg-dark text-white"><i class="bi bi-search"></i></span>
+            <input type="text" id="searchInput" class="form-control bg-dark text-white" placeholder="Rechercher ticket...">
+            <button class="btn btn-outline-primary" onclick="clearSearch()"><i class="bi bi-x-lg"></i></button>
+          </div>
         </div>
         
-        <!-- Colonne Filtre -->
-        <div class="col-md-auto d-flex justify-content-center mb-2 mb-md-0">
-            <select id="statusFilter" class="form-select bg-dark text-white" style="min-width: 200px;" onchange="filterByStatus()">
-                <option value="all">Tous les statuts</option>
-                <option value="assigned">Assignés</option>
-                <option value="unassigned">Non assignés</option>
-                <option value="used">Présents</option>
-                <option value="unused">Non utilisés</option>
-            </select>
+        <div class="col-8 col-md-4 col-lg-3 order-2 order-md-3">
+          <select id="statusFilter" class="form-select bg-dark text-white" onchange="filterByStatus()">
+            <option value="all">Tous statuts</option>
+            <option value="assigned">Assignés</option>
+            <option value="unassigned">Non assignés</option>
+            <option value="used">Présents</option>
+            <option value="unused">Non utilisés</option>
+          </select>
         </div>
         
-        <!-- Colonne Boutons -->
-        <div class="col-md-auto d-flex justify-content-center">
-            <div class="btn-group" role="group">
-                <button class="btn btn-outline-success" onclick="exportToCSV()">
-                    <i class="bi bi-file-earmark-excel"></i> <b>Exporter CSV</b>
-                </button>
-                <button class="btn btn-outline-secondary" onclick="printTickets()">
-                    <i class="bi bi-printer"></i> <b>Imprimer</b>
-                </button>
-            </div>
+        <div class="col-4 col-md-2 col-lg-5 order-3 order-md-2 text-end">
+          <div class="dropdown d-inline-block">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="bi bi-download"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li class="bg-info"><button class="dropdown-item " onclick="exportToCSV()"><b><i class="bi bi-file-earmark-excel"></i> CSV</b></button></li>
+              <li class="bg-primary"><button class="dropdown-item " onclick="printTickets()"><b><i class="bi bi-printer"></i> Imprimer</b></button></li>
+            </ul>
+          </div>
         </div>
       </div>
-      
-
-      <!-- Tableau des tickets -->
-      <div class="table-container shadow-lg mb-4">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Code</th>
-              <th>Statut</th>
-              <th>Assigné à</th>
-              <th>QR Code</th>
-              <th>Date Assignation</th>
-              <th>Date Présence</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="ticket-list"></tbody>
-        </table>
+    
+      <!-- Tableau optimisé mobile -->
+      <div class="table-container">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th class="ps-3">#</th>
+                <th>Code</th>
+                <th class="d-none d-sm-table-cell">Statut</th>
+                <th>Assigné à</th>
+                <th class="d-none d-md-table-cell">QR Code</th>
+                <th class="d-none d-lg-table-cell">Assigné le</th>
+                <th class="d-none d-lg-table-cell">Validé le</th>
+                <th class="pe-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ticket-list">
+              <!-- Contenu dynamique -->
+            </tbody>
+          </table>
+        </div>
       </div>
-
-      <!-- Pagination -->
+    
+      <!-- Pagination responsive -->
       <nav aria-label="Page navigation">
-        <ul class="pagination justify-content-center" id="pagination">
+        <ul class="pagination justify-content-center flex-wrap mt-3" id="pagination">
           <!-- Rempli dynamiquement -->
         </ul>
-      </nav>  
+      </nav>
     </div>
 
     <!-- Modal de confirmation -->
