@@ -360,7 +360,7 @@
                   </button>
                 ` : ''}
                 ${ticket.isAssigned && !ticket.isUsed ? `
-                  <button class="btn btn-success" onclick="validateTicket('${ticket._id}')">
+                  <button class="btn btn-success" onclick="validateTicket('${ticket._id}')" ${ticket.isAssigned ? 'disabled' : ''}>
                     <i class="bi bi-check-lg"></i>
                   </button>
                 ` : ''}
