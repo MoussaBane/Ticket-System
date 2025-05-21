@@ -107,7 +107,7 @@ router.post("/register", async (req, res) => {
       prenom,
       email,
       password,
-      role: "admin", // Par défaut
+      role: "guest", // Par défaut
     });
 
     // Sauvegarder (le pre-save hash le mot de passe)
