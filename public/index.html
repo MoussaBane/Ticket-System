@@ -72,7 +72,7 @@
           src="/logo.png"
           alt="Logo YachtParty"
           class="img-fluid rounded-circle shadow-lg border border-1 border-white"
-          style="max-height: 140px; background: black; padding: 0px;"
+          style="max-height: 140px; background: black; padding: 0px"
         />
         <h1 class="mt-3">🎟️ AEEMIST TABASKI YACHT PARTY 🎟️</h1>
         <p class="lead"><b>Validation de tickets</b></p>
@@ -122,7 +122,7 @@
 
       <!-- Bouton Admin (en bas à droite) -->
       <a
-        href="/admin-auth.html"
+        href="/admin.html"
         class="btn btn-outline-danger admin-link rounded-circle shadow"
         title="Espace Admin"
       >
@@ -172,25 +172,27 @@
         // Validation basique
         if (!code || code.length !== 8) {
           resultDiv.innerHTML = `
-                    <div class="alert alert-warning w-100">
-                        <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 8 caractères
-                    </div>
-                `;
+            <div class="alert alert-warning w-100">
+                <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 8 caractères
+            </div>`;
           return;
         }
 
         // Afficher le loader
         resultDiv.innerHTML = `
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Validation en cours...</span>
-                    </div>
-                    <p>Validation en cours...</p>
-                </div>
-            `;
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Validation en cours...</span>
+            </div>
+            <p>Validation en cours...</p>
+        </div>`;
 
         try {
           const token = localStorage.getItem("token");
+          if (!token) {
+            throw new Error("Vous devez être connecté pour valider un billet");
+          }
+
           const response = await fetch(
             `/validate?code=${encodeURIComponent(code)}`,
             {
@@ -200,35 +202,46 @@
             }
           );
 
+          if (response.status === 401) {
+            throw new Error(
+              "Session expirée ou invalide. Veuillez vous reconnecter."
+            );
+          }
+
+          if (response.status === 403) {
+            throw new Error(
+              "Accès refusé: vous n'avez pas les droits nécessaires"
+            );
+          }
+
           if (!response.ok) {
-            throw new Error("Code invalide. Veuillez réessayer.");
+            const errorData = await response.json();
+            throw new Error(
+              errorData.message || "Code invalide. Veuillez réessayer."
+            );
           }
 
           const data = await response.json();
 
           const date = new Date(data.usedAt || new Date()).toLocaleString();
           resultDiv.innerHTML = `
-                    <div class="alert alert-success w-100">
-                        <h4><i class="bi bi-check-circle-fill"></i> ${
-                          data.message || "Billet validé!"
-                        }</h4>
-                        <hr>
-                        <p>Code: <strong>${code}</strong></p>
-                        <p>Validé le: <strong>${date}</strong></p>
-                    </div>
-                `;
+            <div class="alert alert-success w-100">
+                <h4> ${
+                  data.message || "Billet validé!"
+                }</h4>
+                <hr>
+                <p>Code: <strong>${code}</strong></p>
+                <p>Validé le: <strong>${date}</strong></p>
+            </div>`;
 
           // Effacer le champ après validation
           document.getElementById("codeInput").value = "";
         } catch (error) {
           console.error("Erreur:", error);
           resultDiv.innerHTML = `
-                    <div class="alert alert-danger w-100">
-                        <i class="bi bi-x-circle-fill"></i> ${
-                          error.message || "Erreur lors de la validation"
-                        }
-                    </div>
-                `;
+            <div class="alert alert-danger w-100">
+                ${error.message || "Erreur lors de la validation"}
+            </div>`;
         }
       }
 

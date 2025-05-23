@@ -37,7 +37,10 @@ app.get("/validate", adminAuth, async (req, res) => {
 
   try {
     const ticket = await Ticket.findOne({ code });
-    if (!ticket) return res.status(404).json({ message: "❌ Code invalide" });
+    if (!ticket)
+      return res
+        .status(404)
+        .json({ message: "❌ Code invalide. Veuillez réessayer." });
 
     if (ticket.isUsed) {
       return res.json({
