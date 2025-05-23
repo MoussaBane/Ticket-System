@@ -8,7 +8,11 @@ module.exports = (req, res, next) => {
 
     req.userData = decoded;
 
-    // Vérification du rôle admin
+    // Check if user is authenticated (token valid) and has admin role
+    if (!decoded || !decoded.role) {
+      return res.status(401).json({ message: "Authentification échouée" });
+    }
+
     if (decoded.role !== "admin") {
       return res.status(403).json({
         message: "Accès refusé : réservée aux administrateurs.",

@@ -25,7 +25,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
 
   try {
-    // 1. Vérifier si l'utilisateur existe
+    // Vérifier si l'utilisateur existe
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(401).json({
@@ -34,7 +34,7 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // 2. Vérifier le mot de passe
+    // Vérifier le mot de passe
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -43,18 +43,18 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
     }
 
-    // 3. Générer le token JWT
+    // Générer le token JWT
     const token = jwt.sign(
       {
         id: user._id,
         email: user.email,
-        role: "admin", // Vous pouvez ajouter un système de rôles
+        role: user.role,
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "3h" }
     );
 
-    // 4. Renvoyer la réponse sans le mot de passe
+    // Renvoyer la réponse sans le mot de passe
     const userData = user.toObject();
     delete userData.password;
 
@@ -107,7 +107,7 @@ router.post("/register", async (req, res) => {
       prenom,
       email,
       password,
-      role: "guest", // Par défaut
+      role,
     });
 
     // Sauvegarder (le pre-save hash le mot de passe)
@@ -115,7 +115,7 @@ router.post("/register", async (req, res) => {
 
     // Générer le token automatiquement
     const token = jwt.sign(
-      { id: newUser._id, email: newUser.email, role: "admin" },
+      { id: newUser._id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "3h" }
     );
@@ -126,7 +126,7 @@ router.post("/register", async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Admin créé avec succès",
+      message: "Utilisateur créé avec succès",
       token,
       user: userData,
     });

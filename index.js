@@ -17,23 +17,19 @@ app.use(express.static(path.join(__dirname, "public")));
 // Les routes pour l'authentification admin
 app.use("/admin", adminAuthRoutes);
 
-// Générer 300 tickets
-app.get("/generate-tickets", adminAuth, async (req, res) => {
-  const codes = [];
-  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-  for (let i = 0; i < 300; i++) {
-    let code = "";
-    for (let j = 0; j < 8; j++) {
-      code += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    codes.push({ code });
+// Générer 200 tickets
+app.post("/generate-tickets", adminAuth, async (req, res) => {
+  try {
+    const tickets = Array.from({ length: 200 }, () => ({}));
+    await Ticket.insertMany(tickets);
+    res.status(201).send("200 tickets générés");
+  } catch (error) {
+    console.error("Erreur lors de la génération des tickets:", error);
+    res.status(500).send("Erreur lors de la génération des tickets");
   }
-
-
-  await Ticket.insertMany(codes);
-  res.send("300 tickets générés");
 });
+
+
 
 // Vérification d'un code
 app.get("/validate", adminAuth, async (req, res) => {
@@ -225,12 +221,41 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
   }
 });
 
+// Supprimer un seul ticket par ID
+app.delete("/tickets/:id", adminAuth, async (req, res) => {
+  try {
+    const ticketId = req.params.id;
+    const deleted = await Ticket.findByIdAndDelete(ticketId);
+
+    if (!deleted) {
+      return res.status(404).send("Ticket non trouvé.");
+    }
+
+    res.status(200).send("Ticket supprimé avec succès.");
+  } catch (error) {
+    console.error("Erreur lors de la suppression du ticket :", error);
+    res.status(500).send("Erreur serveur lors de la suppression.");
+  }
+});
+
+// Supprimer tous les tickets
+app.post("/delete-all-tickets", adminAuth, async (req, res) => {
+  try {
+    const result = await Ticket.deleteMany({});
+    res.status(200).send(`${result.deletedCount} tickets supprimés.`);
+  } catch (error) {
+    console.error("Erreur lors de la suppression des tickets :", error);
+    res.status(500).send("Erreur serveur lors de la suppression.");
+  }
+});
+
 // Exporter en CSV
 app.get("/admin/export-csv", adminAuth, async (req, res) => {
   try {
     const tickets = await Ticket.find();
     const fields = [
       "_id",
+      "ticketNumber",
       "code",
       "isAssigned",
       "assignedTo",
