@@ -6,15 +6,23 @@ const ticketSchema = new mongoose.Schema({
     unique: true,
     required: true,
     default: () => Math.floor(10000000 + Math.random() * 90000000).toString(),
-  }, // Génère un code de 8 chiffres
-  isUsed: { type: Boolean, default: false }, // Présent à l'événement
-  isAssigned: { type: Boolean, default: false }, // Ticket acheté/assigné
-  assignedTo: { type: String, default: null }, // Nom de la personne
-  assignedAt: { type: Date, default: null }, // Date d'assignation
-  usedAt: { type: Date, default: null }, // Date de validation,
+  },
+  isUsed: { type: Boolean, default: false },
+  isAssigned: { type: Boolean, default: true },
+
+  assignedTo: String,
+  assignedEmail: String,
+  reservationId: { type: mongoose.Schema.Types.ObjectId, ref: "Reservation" },
+
+  qrData: String,
+  pdfUrl: String,
+
+  sent: { type: Boolean, default: false },
+  sentAt: Date,
+  assignedAt: { type: Date, default: Date.now },
+  usedAt: Date,
   createdAt: { type: Date, default: Date.now },
 });
-
 
 module.exports = mongoose.model("Ticket", ticketSchema);
 

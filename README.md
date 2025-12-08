@@ -104,6 +104,88 @@ npm start
 
 The application will be available at `http://localhost:3000`
 
+## 🧭 Roles & Workflow
+
+This project now supports two roles: `admin` and `manager` with a reservation->ticket workflow:
+
+- **Manager**: create reservations (single or CSV import) for paid purchases. Managers cannot generate tickets or send emails.
+- **Admin**: review reservations, generate tickets (code + QR + PDF) from `PENDING` reservations, and send tickets by email. Admins also keep full access to ticket management and exports.
+
+## 🔁 Ticket Workflow (Admin & Manager)
+
+```mermaid
+flowchart LR
+   subgraph Managers
+      M[Manager] --> M1[Create single reservation<br/>(manual form)]
+      M --> M2[Import reservations<br/>(CSV file)]
+   end
+
+   M1 --> R[Reservation (PENDING)]
+   M2 --> R
+
+   subgraph Admins
+      A[Admin] --> A1[View all reservations]
+      A --> A2[Generate tickets<br/>from PENDING reservations]
+      A --> A3[Send tickets<br/>by email]
+   end
+
+   R -->|PENDING| G[Generate Tickets]
+   G --> T[Ticket created<br/>(code + QR + PDF)]
+   G --> R2[Reservation status = TICKET_CREATED]
+
+   A3 --> S[Email sent to holder]
+   S --> T2[Ticket.sent = true]
+   S --> R3[Reservation status = TICKET_SENT]
+
+   subgraph Participants
+      H[Ticket Holder] --> DL[Open email or link]
+      DL --> QR[Download ticket PDF<br/>with QR code]
+      QR --> USE[Use ticket at event<br/>(scan code/QR)]
+   end
+```
+
+## 🧬 Data Model Relations
+
+```mermaid
+erDiagram
+   USER {
+      string nom
+      string prenom
+      string email
+      string password
+      string role  "admin | manager"
+      date   createdAt
+   }
+
+   RESERVATION {
+      string buyerName
+      string buyerEmail
+      string buyerPhone
+      string holderName
+      string holderEmail
+      string status        "PENDING | TICKET_CREATED | TICKET_SENT"
+      date   createdAt
+   }
+
+   TICKET {
+      string code
+      boolean isUsed
+      boolean isAssigned
+      string assignedTo
+      string assignedEmail
+      string pdfUrl
+      string qrData
+      boolean sent
+      date   sentAt
+      date   assignedAt
+      date   usedAt
+      date   createdAt
+   }
+
+   USER ||--o{ RESERVATION : "createdBy"
+   RESERVATION }o--|| TICKET : "ticketId"
+```
+
 ## 📱 Usage
 
 ### Admin Access

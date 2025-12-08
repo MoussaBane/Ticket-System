@@ -6,6 +6,16 @@
     <title>Admin Panel - TicketSystem</title>
     <meta
       name="description"
+                <li>
+                  <button class="dropdown-item text-primary" onclick="generateFromReservations()">
+                    <i class="bi bi-collection-play"></i> Générer depuis Réservations
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-success" onclick="sendTicketsFromReservations()">
+                    <i class="bi bi-send"></i> Envoyer Tickets (TICKET_CREATED)
+                  </button>
+                </li>
       content="Interface de gestion des tickets pour Tabaski YachtParty de l'AEEMIST." />
     <meta name="author" content="Moussa BANE" />
     <link
@@ -251,6 +261,16 @@
                   <button class="dropdown-item text-success"
                     onclick="generateTickets()">
                     <i class="bi bi-ticket-perforated"></i> Générer Tickets
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-primary" onclick="generateFromReservations()">
+                    <i class="bi bi-box-seam"></i> Générer depuis réservations
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-info" onclick="sendTicketsFromReservations()">
+                    <i class="bi bi-send"></i> Envoyer tickets (créés)
                   </button>
                 </li>
                 <li>
@@ -960,6 +980,35 @@
             );
           }
         }
+      }
+
+      // Générer tickets à partir des réservations pending
+      async function generateFromReservations() {
+        if (!confirm('Générer des tickets pour toutes les réservations PENDING ?')) return;
+        try {
+          const response = await fetch('/api/admin/generate-tickets-from-reservations', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Erreur lors de la génération');
+          const data = await response.json();
+          showToast('info', `Tickets générés: ${data.count}`);
+          loadTickets();
+        } catch (err) { showToast('danger', err.message || 'Erreur'); }
+      }
+
+      // Envoyer tickets depuis réservations (TICKET_CREATED)
+      async function sendTicketsFromReservations() {
+        if (!confirm('Envoyer tous les tickets pour réservations TICKET_CREATED ?')) return;
+        try {
+          const response = await fetch('/api/admin/send-tickets-from-reservations', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Erreur lors de l envoi');
+          const data = await response.json();
+          showToast('success', `Mails envoyés: ${data.sent}`);
+        } catch (err) { showToast('danger', err.message || 'Erreur'); }
       }
 
       // Supprimer tous les tickets

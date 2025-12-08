@@ -8,14 +8,29 @@ const { Parser } = require("json2csv");
 const QRCode = require("qrcode");
 const Ticket = require("./models/Ticket");
 const adminAuthRoutes = require("./routes/auth");
+const managerRoutes = require("./routes/manager");
+const adminRoutes = require("./routes/admin");
+const verifyToken = require("./middlewares/verifyToken");
+const roleAuth = require("./middlewares/roleAuth");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static public folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Les routes pour l'authentification admin
+// View engine for PDF templates
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
+
+// Les routes pour l'authentification (login/register)
 app.use("/admin", adminAuthRoutes);
+
+// API routes for manager and admin workflows
+app.use("/api/manager", managerRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Générer 200 tickets
 app.post("/generate-tickets", adminAuth, async (req, res) => {

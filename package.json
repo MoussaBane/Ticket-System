@@ -7,6 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "serve": "nodemon index.js",
     "dev": "node index.js"
+    ,"seed:users": "node scripts/seedUsers.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +27,9 @@
     "mongoose-sequence": "^6.0.1",
     "nodemon": "^3.1.9",
     "qrcode": "^1.5.4",
+    "ejs": "^3.1.9",
+    "puppeteer": "^21.3.8",
+    "nodemailer": "^6.9.4",
     "validator": "^13.15.0"
   }
 }

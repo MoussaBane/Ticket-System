@@ -32,8 +32,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "editor", "guest"],
-      default: "guest",
+      enum: ["admin", "manager"],
+      default: "manager",
     },
     createdAt: {
       type: Date,
@@ -66,6 +66,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 // Méthode pour générer un token JWT
 userSchema.methods.generateAuthToken = function () {
+  const jwt = require("jsonwebtoken");
   return jwt.sign(
     { id: this._id, email: this.email, role: this.role },
     process.env.JWT_SECRET,
