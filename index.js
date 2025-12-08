@@ -10,6 +10,7 @@ const Ticket = require("./models/Ticket");
 const adminAuthRoutes = require("./routes/auth");
 const managerRoutes = require("./routes/manager");
 const adminRoutes = require("./routes/admin");
+const usersRoutes = require("./routes/users");
 const verifyToken = require("./middlewares/verifyToken");
 const roleAuth = require("./middlewares/roleAuth");
 
@@ -31,6 +32,7 @@ app.use("/admin", adminAuthRoutes);
 // API routes for manager and admin workflows
 app.use("/api/manager", managerRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/users", usersRoutes);
 
 // Générer 200 tickets
 app.post("/generate-tickets", adminAuth, async (req, res) => {
@@ -43,8 +45,6 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
     res.status(500).send("Erreur lors de la génération des tickets");
   }
 });
-
-
 
 // Vérification d'un code
 app.get("/validate", adminAuth, async (req, res) => {
@@ -297,7 +297,10 @@ app.get("/admin/export-csv", adminAuth, async (req, res) => {
 });
 
 // MongoDB connection
-const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.pznxahw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri =
+  process.env.DB_URI ||
+  process.env.DB_URL ||
+  `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.pznxahw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 mongoose
   .connect(uri)
   .then(() => console.log("✅ MongoDB connecté"))

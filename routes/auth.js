@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require("bcryptjs");
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require("../models/User");
 const rateLimit = require("express-rate-limit");
 
 // Limiter les tentatives de connexion
@@ -49,6 +48,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     }
 
     // Générer le token JWT
+    const jwt = require("jsonwebtoken");
     const token = jwt.sign(
       {
         id: user._id,
@@ -112,13 +112,14 @@ router.post("/register", async (req, res) => {
       prenom,
       email,
       password,
-      role: req.body.role || "manager",
+      role: req.body.role || "normal",
     });
 
     // Sauvegarder (le pre-save hash le mot de passe)
     await newUser.save();
 
     // Générer le token automatiquement
+    const jwt = require("jsonwebtoken");
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET,
