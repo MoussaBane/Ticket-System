@@ -3,104 +3,252 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 const roleAuth = require('../middlewares/roleAuth');
 const User = require('../models/User');
+const {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+} = require("../utils/responseUtils");
 
-// Get own profile
-router.get('/me', verifyToken, async (req, res) => {
+/**
+ * GET /api/users/me
+ * Get current user's profile
+ */
+router.get("/me", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ success: true, user });
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
+
+    return sendSuccess(res, { user }, 200, "Profile retrieved");
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching user profile:", err);
+    return sendError(
+      res,
+      "Server error while fetching profile",
+      500,
+      err.message
+    );
   }
 });
 
-// Update own profile (name, email) and change password (requires currentPassword)
-router.put('/me', verifyToken, async (req, res) => {
+/**
+ * PUT /api/users/me
+ * Update current user's profile (name, email) or password
+ * Requires currentPassword to change password
+ */
+router.put("/me", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const { nom, prenom, email, currentPassword, newPassword } = req.body;
 
-    const user = await User.findById(userId).select('+password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(userId).select("+password");
 
-    if (nom) user.nom = nom;
-    if (prenom) user.prenom = prenom;
-    if (email) user.email = email;
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
 
-    // If changing password, require currentPassword
+    // Update profile fields
+    if (nom && nom.trim() !== "") user.nom = nom.trim();
+    if (prenom && prenom.trim() !== "") user.prenom = prenom.trim();
+    if (email && email.trim() !== "") user.email = email.toLowerCase().trim();
+
+    // Change password if requested
     if (newPassword) {
-      if (!currentPassword) return res.status(400).json({ message: 'Current password is required to change password' });
-      const match = await user.comparePassword(currentPassword);
-      if (!match) return res.status(401).json({ message: 'Current password incorrect' });
-      user.password = newPassword; // will be hashed by pre-save
+      if (!currentPassword) {
+        return sendValidationError(
+          res,
+          "Current password is required to change password"
+        );
+      }
+
+      if (newPassword.length < 8) {
+        return sendValidationError(
+          res,
+          "New password must be at least 8 characters"
+        );
+      }
+
+      // Verify current password
+      const passwordMatch = await user.comparePassword(currentPassword);
+      if (!passwordMatch) {
+        return sendError(res, "Current password is incorrect", 401);
+      }
+
+      user.password = newPassword; // Will be hashed by pre-save hook
     }
 
     await user.save();
 
-    const returned = user.toObject();
-    delete returned.password;
-    res.json({ success: true, user: returned });
+    const returnedUser = user.toObject();
+    delete returnedUser.password;
+
+    return sendSuccess(
+      res,
+      { user: returnedUser },
+      200,
+      "Profile updated successfully"
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating user profile:", err);
+    return sendError(
+      res,
+      "Server error while updating profile",
+      500,
+      err.message
+    );
   }
 });
 
-// Admin-only: list all users
-router.get('/', verifyToken, roleAuth('admin'), async (req, res) => {
+/**
+ * GET /api/users
+ * List all users (admin only)
+ */
+router.get("/", verifyToken, roleAuth("admin"), async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
-    res.json(users);
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+
+    return sendSuccess(res, users, 200, "Users retrieved");
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching users:", err);
+    return sendError(
+      res,
+      "Server error while fetching users",
+      500,
+      err.message
+    );
   }
 });
 
-// Admin-only: change a user's role
-router.put('/:id/role', verifyToken, roleAuth('admin'), async (req, res) => {
+/**
+ * PUT /api/users/:id/role
+ * Change a user's role (admin only)
+ */
+router.put("/:id/role", verifyToken, roleAuth("admin"), async (req, res) => {
   try {
     const { role } = req.body;
-    if (!role) return res.status(400).json({ message: 'Role is required' });
 
-    // Only allow valid roles
-    const allowed = ['admin', 'manager', 'normal'];
-    if (!allowed.includes(role)) return res.status(400).json({ message: 'Invalid role' });
+    if (!role || role.trim() === "") {
+      return sendValidationError(res, "Role is required");
+    }
+
+    const allowedRoles = ["admin", "manager", "normal"];
+    if (!allowedRoles.includes(role)) {
+      return sendValidationError(
+        res,
+        `Role must be one of: ${allowedRoles.join(", ")}`
+      );
+    }
 
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
+
+    // Prevent removing the last admin
+    if (user.role === "admin" && role !== "admin") {
+      const adminCount = await User.countDocuments({ role: "admin" });
+      if (adminCount <= 1) {
+        return sendError(res, "Cannot remove the last admin user", 400);
+      }
+    }
 
     user.role = role;
     await user.save();
 
-    const returned = user.toObject();
-    delete returned.password;
-    res.json({ success: true, user: returned });
+    const returnedUser = user.toObject();
+    delete returnedUser.password;
+
+    return sendSuccess(
+      res,
+      { user: returnedUser },
+      200,
+      "User role updated successfully"
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error updating user role:", err);
+    return sendError(
+      res,
+      "Server error while updating user role",
+      500,
+      err.message
+    );
   }
 });
 
-// Admin-only: reset a user's password
-router.put('/:id/reset-password', verifyToken, roleAuth('admin'), async (req, res) => {
+/**
+ * PUT /api/users/:id/reset-password
+ * Reset a user's password (admin only)
+ */
+router.put(
+  "/:id/reset-password",
+  verifyToken,
+  roleAuth("admin"),
+  async (req, res) => {
+    try {
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.trim() === "") {
+        return sendValidationError(res, "New password is required");
+      }
+
+      if (newPassword.length < 8) {
+        return sendValidationError(
+          res,
+          "Password must be at least 8 characters"
+        );
+      }
+
+      const user = await User.findById(req.params.id);
+
+      if (!user) {
+        return sendError(res, "User not found", 404);
+      }
+
+      user.password = newPassword; // Will be hashed by pre-save hook
+      await user.save();
+
+      return sendSuccess(res, null, 200, "Password reset successfully");
+    } catch (err) {
+      console.error("Error resetting user password:", err);
+      return sendError(
+        res,
+        "Server error while resetting password",
+        500,
+        err.message
+      );
+    }
+  }
+);
+
+/**
+ * DELETE /api/users/:id
+ * Delete a user (admin only)
+ */
+router.delete("/:id", verifyToken, roleAuth("admin"), async (req, res) => {
   try {
-    const { newPassword } = req.body;
-    if (!newPassword) return res.status(400).json({ message: 'New password is required' });
-    if (newPassword.length < 8) return res.status(400).json({ message: 'Password must be at least 8 characters' });
-
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.password = newPassword; // will be hashed by pre-save
-    await user.save();
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
 
-    res.json({ success: true, message: 'Password reset successfully' });
+    // Prevent deleting the last admin
+    if (user.role === "admin") {
+      const adminCount = await User.countDocuments({ role: "admin" });
+      if (adminCount <= 1) {
+        return sendError(res, "Cannot delete the last admin user", 400);
+      }
+    }
+
+    await User.findByIdAndDelete(req.params.id);
+
+    return sendSuccess(res, null, 200, "User deleted successfully");
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error deleting user:", err);
+    return sendError(res, "Server error while deleting user", 500, err.message);
   }
 });
 

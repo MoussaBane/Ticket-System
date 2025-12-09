@@ -6,83 +6,201 @@ const Reservation = require('../models/Reservation');
 const Ticket = require('../models/Ticket');
 const { generateTicketPdf } = require('../services/ticketPdfService');
 const { sendTicketMail } = require('../services/mailService');
+const { sendSuccess, sendError } = require("../utils/responseUtils");
 
-// List all reservations (filter by status optional)
-router.get('/reservations', verifyToken, roleAuth('admin'), async (req, res) => {
-  try {
-    const { status } = req.query;
-    const query = {};
-    if (status) query.status = status;
-    const reservations = await Reservation.find(query).populate('createdBy', 'nom prenom email').sort({ createdAt: -1 });
-    res.json(reservations);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+/**
+ * GET /api/admin/reservations
+ * List all reservations with optional status filter
+ */
+router.get(
+  "/reservations",
+  verifyToken,
+  roleAuth("admin"),
+  async (req, res) => {
+    try {
+      const { status } = req.query;
+      const query = {};
 
-// Generate tickets from all PENDING reservations
-router.post('/generate-tickets-from-reservations', verifyToken, roleAuth('admin'), async (req, res) => {
-  try {
-    const pending = await Reservation.find({ status: 'PENDING' });
-    const createdTickets = [];
+      // Filter by status if provided
+      if (
+        status &&
+        ["PENDING", "TICKET_CREATED", "TICKET_SENT"].includes(status)
+      ) {
+        query.status = status;
+      }
 
-    for (const r of pending) {
-      // create ticket
-      const ticket = new Ticket({
-        code: Math.floor(10000000 + Math.random() * 90000000).toString(),
-        isAssigned: true,
-        assignedTo: r.holderName,
-        assignedEmail: r.holderEmail,
-        reservationId: r._id
-      });
+      const reservations = await Reservation.find(query)
+        .populate("createdBy", "nom prenom email")
+        .populate("ticketId", "code pdfUrl")
+        .sort({ createdAt: -1 });
 
-      // generate pdf & qr
-      const { publicUrl, qrData } = await generateTicketPdf(ticket);
-      ticket.pdfUrl = publicUrl;
-      ticket.qrData = qrData;
-
-      await ticket.save();
-
-      r.ticketId = ticket._id;
-      r.status = 'TICKET_CREATED';
-      await r.save();
-
-      createdTickets.push(ticket);
+      return sendSuccess(res, reservations, 200, "Reservations retrieved");
+    } catch (err) {
+      console.error("Error fetching reservations:", err);
+      return sendError(
+        res,
+        "Server error while fetching reservations",
+        500,
+        err.message
+      );
     }
-
-    res.json({ success: true, count: createdTickets.length });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
   }
-});
+);
 
-// Send tickets for all TICKET_CREATED reservations
-router.post('/send-tickets-from-reservations', verifyToken, roleAuth('admin'), async (req, res) => {
-  try {
-    const list = await Reservation.find({ status: 'TICKET_CREATED' }).populate('ticketId');
-    let sentCount = 0;
+/**
+ * POST /api/admin/generate-tickets-from-reservations
+ * Generate tickets for all PENDING reservations
+ * Creates PDF and QR code for each ticket
+ */
+router.post(
+  "/generate-tickets-from-reservations",
+  verifyToken,
+  roleAuth("admin"),
+  async (req, res) => {
+    try {
+      const pending = await Reservation.find({ status: "PENDING" });
 
-    for (const r of list) {
-      const ticket = await Ticket.findById(r.ticketId);
-      if (!ticket) continue;
+      if (pending.length === 0) {
+        return sendSuccess(
+          res,
+          { count: 0 },
+          200,
+          "No pending reservations to process"
+        );
+      }
 
-      await sendTicketMail(ticket);
-      ticket.sent = true;
-      ticket.sentAt = new Date();
-      await ticket.save();
+      const createdTickets = [];
+      const errors = [];
 
-      r.status = 'TICKET_SENT';
-      await r.save();
-      sentCount++;
+      for (const reservation of pending) {
+        try {
+          // Create new ticket
+          const ticket = new Ticket({
+            code: Math.floor(10000000 + Math.random() * 90000000).toString(),
+            isAssigned: true,
+            assignedTo: reservation.holderName,
+            assignedEmail: reservation.holderEmail,
+            reservationId: reservation._id,
+          });
+
+          // Generate PDF with QR code
+          const { publicUrl, qrData } = await generateTicketPdf(ticket);
+          ticket.pdfUrl = publicUrl;
+          ticket.qrData = qrData;
+
+          // Save ticket to database
+          await ticket.save();
+
+          // Update reservation with ticket reference and new status
+          reservation.ticketId = ticket._id;
+          reservation.status = "TICKET_CREATED";
+          await reservation.save();
+
+          createdTickets.push(ticket);
+        } catch (ticketErr) {
+          console.error(
+            `Error creating ticket for reservation ${reservation._id}:`,
+            ticketErr
+          );
+          errors.push(`Reservation ${reservation._id}: ${ticketErr.message}`);
+        }
+      }
+
+      return sendSuccess(
+        res,
+        {
+          count: createdTickets.length,
+          total: pending.length,
+          errors: errors.length > 0 ? errors : undefined,
+        },
+        200,
+        `Generated ${createdTickets.length} tickets successfully`
+      );
+    } catch (err) {
+      console.error("Error generating tickets:", err);
+      return sendError(
+        res,
+        "Server error while generating tickets",
+        500,
+        err.message
+      );
     }
-
-    res.json({ success: true, sent: sentCount });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
   }
-});
+);
+
+/**
+ * POST /api/admin/send-tickets-from-reservations
+ * Send emails for all TICKET_CREATED reservations
+ * Updates ticket status to 'sent' and reservation to 'TICKET_SENT'
+ */
+router.post(
+  "/send-tickets-from-reservations",
+  verifyToken,
+  roleAuth("admin"),
+  async (req, res) => {
+    try {
+      const toSend = await Reservation.find({
+        status: "TICKET_CREATED",
+      }).populate("ticketId");
+
+      if (toSend.length === 0) {
+        return sendSuccess(res, { sent: 0 }, 200, "No tickets to send");
+      }
+
+      let sentCount = 0;
+      const errors = [];
+
+      for (const reservation of toSend) {
+        try {
+          const ticket = await Ticket.findById(reservation.ticketId);
+
+          if (!ticket) {
+            errors.push(`Reservation ${reservation._id}: Ticket not found`);
+            continue;
+          }
+
+          // Send email with ticket
+          await sendTicketMail(ticket);
+
+          // Mark ticket as sent
+          ticket.sent = true;
+          ticket.sentAt = new Date();
+          await ticket.save();
+
+          // Update reservation status
+          reservation.status = "TICKET_SENT";
+          await reservation.save();
+
+          sentCount++;
+        } catch (sendErr) {
+          console.error(
+            `Error sending ticket for reservation ${reservation._id}:`,
+            sendErr
+          );
+          errors.push(`Reservation ${reservation._id}: ${sendErr.message}`);
+        }
+      }
+
+      return sendSuccess(
+        res,
+        {
+          sent: sentCount,
+          total: toSend.length,
+          errors: errors.length > 0 ? errors : undefined,
+        },
+        200,
+        `Sent ${sentCount} tickets successfully`
+      );
+    } catch (err) {
+      console.error("Error sending tickets:", err);
+      return sendError(
+        res,
+        "Server error while sending tickets",
+        500,
+        err.message
+      );
+    }
+  }
+);
 
 module.exports = router;

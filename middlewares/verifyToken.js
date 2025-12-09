@@ -1,19 +1,41 @@
-const verifyToken = (req, res, next) => {
+/**
+ * JWT Token Verification Middleware
+ * Extracts and validates JWT token from Authorization header
+ * Attaches decoded user data to req.user
+ */
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = authHeader && authHeader.split(" ")[1]; // Extract "Bearer <token>"
 
   if (!token) {
-    return res.status(401).json({ message: "Token manquant" });
+    return res.status(401).json({
+      success: false,
+      message: "Authorization token is missing",
+    });
   }
 
-  const jwt = require("jsonwebtoken");
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: "Token invalide" });
+  try {
+    const { jwtVerify } = require("jose");
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+
+    if (!secret || process.env.JWT_SECRET.length === 0) {
+      console.error("JWT_SECRET not configured");
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error",
+      });
     }
-    req.user = user; // On stocke les infos du token dans req.user
+
+    const { payload } = await jwtVerify(token, secret);
+    req.user = payload;
     next();
-  });
+  } catch (err) {
+    console.error("Token verification failed:", err.message);
+    return res.status(403).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
 };
 
 module.exports = verifyToken;

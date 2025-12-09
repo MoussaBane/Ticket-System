@@ -1,35 +1,48 @@
 {
   "name": "ticket-system",
   "version": "1.0.0",
-  "description": "",
+  "description": "Comprehensive event ticket management system with QR codes, PDF generation, and role-based access control",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "nodemon index.js",
-    "dev": "node index.js"
-    ,"seed:users": "node scripts/seedUsers.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed:users": "node scripts/seedUsers.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "ticket",
+    "management",
+    "event",
+    "qrcode",
+    "jwt",
+    "mongodb",
+    "express"
+  ],
+  "author": "Moussa BANE",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
+    "ejs": "^3.1.9",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "html5-qrcode": "^2.3.8",
+    "jose": "^5.2.0",
     "json2csv": "^6.0.0-alpha.2",
-    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.0",
     "mongoose-sequence": "^6.0.1",
-    "nodemon": "^3.1.9",
-    "qrcode": "^1.5.4",
-    "ejs": "^3.1.9",
-    "puppeteer": "^21.3.8",
     "nodemailer": "^6.9.4",
+    "nodemon": "^3.1.9",
+    "puppeteer": "^21.3.8",
+    "qrcode": "^1.5.4",
     "validator": "^13.15.0"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   }
 }
+

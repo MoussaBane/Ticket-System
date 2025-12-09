@@ -1,32 +1,55 @@
+/**
+ * Ticket Management System - Main Server
+ * Node.js + Express + MongoDB backend for event ticket management
+ */
+
 require("dotenv").config();
 const express = require("express");
-const adminAuth = require("./middlewares/adminAuth");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
 const { Parser } = require("json2csv");
 const QRCode = require("qrcode");
+
+// Models and Routes
 const Ticket = require("./models/Ticket");
 const adminAuthRoutes = require("./routes/auth");
 const managerRoutes = require("./routes/manager");
 const adminRoutes = require("./routes/admin");
 const usersRoutes = require("./routes/users");
+
+// Middlewares
 const verifyToken = require("./middlewares/verifyToken");
 const roleAuth = require("./middlewares/roleAuth");
+const adminAuth = require("./middlewares/adminAuth");
 
+// Utilities
+const {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+} = require("./utils/responseUtils");
+
+// Initialize Express app
 const app = express();
+
+// Middleware configuration
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static public folder
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// View engine for PDF templates
+// Configure view engine for PDF templates
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
-// Les routes pour l'authentification (login/register)
+// =====================
+// ROUTES CONFIGURATION
+// =====================
+
+// Authentication routes (login, register)
 app.use("/admin", adminAuthRoutes);
 
 // API routes for manager and admin workflows
@@ -34,159 +57,316 @@ app.use("/api/manager", managerRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", usersRoutes);
 
-// Générer 200 tickets
-app.post("/generate-tickets", adminAuth, async (req, res) => {
-  try {
-    const tickets = Array.from({ length: 200 }, () => ({}));
-    await Ticket.insertMany(tickets);
-    res.status(201).send("200 tickets générés");
-  } catch (error) {
-    console.error("Erreur lors de la génération des tickets:", error);
-    res.status(500).send("Erreur lors de la génération des tickets");
-  }
-});
+// =====================
+// TICKET VALIDATION ENDPOINTS
+// =====================
 
-// Vérification d'un code
-app.get("/validate", adminAuth, async (req, res) => {
-  const { code } = req.query;
+/**
+ * POST /validate-ticket
+ * Validate a ticket via QR code scan (admin/manager only)
+ */
+app.post(
+  "/validate-ticket",
+  verifyToken,
+  roleAuth("admin", "manager"),
+  async (req, res) => {
+    const { code } = req.body;
 
-  try {
-    const ticket = await Ticket.findOne({ code });
-    if (!ticket)
-      return res
-        .status(404)
-        .json({ message: "❌ Code invalide. Veuillez réessayer." });
-
-    if (ticket.isUsed) {
-      return res.json({
-        success: false,
-        message: `⛔ Code déjà utilisé le ${ticket.usedAt.toLocaleString()}`,
-        usedAt: ticket.usedAt,
-      });
+    if (!code || code.trim() === "") {
+      return sendValidationError(res, "Ticket code is required");
     }
 
-    const updatedTicket = await Ticket.findByIdAndUpdate(
-      ticket._id,
-      { isUsed: true, usedAt: new Date() },
-      { new: true }
+    try {
+      const ticket = await Ticket.findOne({ code });
+
+      if (!ticket) {
+        return sendError(res, "Ticket not found", 404);
+      }
+
+      if (ticket.isUsed) {
+        return sendSuccess(
+          res,
+          { usedAt: ticket.usedAt },
+          200,
+          `Ticket already used on ${ticket.usedAt.toLocaleString()}`
+        );
+      }
+
+      // Mark ticket as used
+      ticket.isUsed = true;
+      ticket.usedAt = new Date();
+      await ticket.save();
+
+      return sendSuccess(
+        res,
+        { ticket: ticket.toObject() },
+        200,
+        "Ticket validated successfully"
+      );
+    } catch (err) {
+      console.error("Error validating ticket:", err);
+      return sendError(
+        res,
+        "Server error while validating ticket",
+        500,
+        err.message
+      );
+    }
+  }
+);
+
+/**
+ * GET /validate
+ * Validate a ticket via URL query parameter
+ */
+app.get(
+  "/validate",
+  verifyToken,
+  roleAuth("admin", "manager"),
+  async (req, res) => {
+    const { code } = req.query;
+
+    if (!code || code.trim() === "") {
+      return sendValidationError(res, "Ticket code is required");
+    }
+
+    try {
+      const ticket = await Ticket.findOne({ code });
+
+      if (!ticket) {
+        return sendError(res, "Ticket not found", 404);
+      }
+
+      if (ticket.isUsed) {
+        return sendSuccess(
+          res,
+          { usedAt: ticket.usedAt },
+          200,
+          `Ticket already used on ${ticket.usedAt.toLocaleString()}`
+        );
+      }
+
+      // Mark ticket as used
+      const updatedTicket = await Ticket.findByIdAndUpdate(
+        ticket._id,
+        { isUsed: true, usedAt: new Date() },
+        { new: true }
+      );
+
+      return sendSuccess(
+        res,
+        { ticket: updatedTicket.toObject() },
+        200,
+        "Ticket validated successfully"
+      );
+    } catch (err) {
+      console.error("Error validating ticket:", err);
+      return sendError(
+        res,
+        "Server error while validating ticket",
+        500,
+        err.message
+      );
+    }
+  }
+);
+
+// =====================
+// TICKET MANAGEMENT ENDPOINTS
+// =====================
+
+/**
+ * GET /admin/tickets
+ * List all tickets with optional filtering
+ */
+app.get("/admin/tickets", adminAuth, async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = {};
+
+    // Apply status filters
+    if (status === "used") {
+      query.isUsed = true;
+    } else if (status === "unused") {
+      query.isUsed = false;
+    } else if (status === "assigned") {
+      query.isAssigned = true;
+    } else if (status === "unassigned") {
+      query.isAssigned = false;
+    }
+
+    const tickets = await Ticket.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1000); // Limit to prevent huge responses
+
+    // Generate QR codes for each ticket
+    const ticketsWithQR = await Promise.all(
+      tickets.map(async (ticket) => {
+        try {
+          const qrDataUrl = await QRCode.toDataURL(ticket.code);
+          return {
+            ...ticket.toObject(),
+            qrUrl: qrDataUrl,
+          };
+        } catch (qrErr) {
+          console.error(`Error generating QR for ticket ${ticket._id}:`, qrErr);
+          return ticket.toObject();
+        }
+      })
     );
 
-    res.json({
-      success: true,
-      message: "✅ Code validé. Bienvenue !",
-      ticket: updatedTicket,
-    });
+    return sendSuccess(
+      res,
+      ticketsWithQR,
+      200,
+      "Tickets retrieved successfully"
+    );
   } catch (err) {
-    res.status(500).json({ message: "Erreur serveur" });
+    console.error("Error fetching tickets:", err);
+    return sendError(
+      res,
+      "Server error while fetching tickets",
+      500,
+      err.message
+    );
   }
 });
 
-// Validation du ticket via QR code
-app.post("/validate-ticket", adminAuth, async (req, res) => {
-  const { code } = req.body;
-
-  try {
-    const ticket = await Ticket.findOne({ code });
-
-    if (!ticket) {
-      return res.json({ success: false, message: "Ticket invalide !" });
-    }
-
-    if (ticket.isUsed) {
-      return res.json({
-        success: false,
-        message: `Ticket déjà utilisé le ${ticket.usedAt.toLocaleString()}`,
-      });
-    }
-
-    ticket.isUsed = true;
-    ticket.usedAt = new Date();
-    await ticket.save();
-
-    return res.json({
-      success: true,
-      message: "Ticket valide. Bienvenue !",
-      usedAt: ticket.usedAt,
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: "Erreur serveur." });
-  }
-});
-
-// Récupérer un ticket spécifique
+/**
+ * GET /admin/tickets/:id
+ * Get a specific ticket by ID
+ */
 app.get("/admin/tickets/:id", adminAuth, async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
+
     if (!ticket) {
-      return res.status(404).json({ message: "Ticket non trouvé" });
+      return sendError(res, "Ticket not found", 404);
     }
 
     const qrUrl = await QRCode.toDataURL(ticket.code);
-    res.json({ ...ticket.toObject(), qrUrl });
+
+    return sendSuccess(
+      res,
+      { ...ticket.toObject(), qrUrl },
+      200,
+      "Ticket retrieved"
+    );
   } catch (err) {
-    res.status(500).json({ message: "Erreur serveur" });
+    console.error("Error fetching ticket:", err);
+    return sendError(
+      res,
+      "Server error while fetching ticket",
+      500,
+      err.message
+    );
   }
 });
 
-// Mettre à jour un ticket
+/**
+ * PUT /admin/tickets/:id
+ * Update a ticket's properties
+ */
 app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
   try {
     const { isUsed, isAssigned, assignedTo } = req.body;
-    const update = { isUsed, isAssigned, assignedTo };
+    const update = {};
 
-    // Gestion de isUsed et usedAt
-    if (isUsed) {
-      update.usedAt = new Date();
-    } else {
-      update.usedAt = null;
+    // Update isUsed status
+    if (isUsed !== undefined) {
+      update.isUsed = isUsed;
+      if (isUsed) {
+        update.usedAt = new Date();
+      } else {
+        update.usedAt = null;
+      }
     }
 
-    // Gestion de isAssigned et assignedAt
-    if (isAssigned && assignedTo && assignedTo.trim() !== "") {
-      update.isAssigned = true;
-      update.assignedAt = update.assignedAt || new Date();
-    } else {
-      update.isAssigned = false;
-      update.assignedTo = null;
-      update.assignedAt = null;
+    // Update assignment status
+    if (isAssigned !== undefined) {
+      if (isAssigned && assignedTo && assignedTo.trim() !== "") {
+        update.isAssigned = true;
+        update.assignedTo = assignedTo.trim();
+        update.assignedAt = update.assignedAt || new Date();
+      } else {
+        update.isAssigned = false;
+        update.assignedTo = null;
+        update.assignedAt = null;
+      }
     }
 
     const ticket = await Ticket.findByIdAndUpdate(req.params.id, update, {
       new: true,
     });
 
-    res.json(ticket);
+    if (!ticket) {
+      return sendError(res, "Ticket not found", 404);
+    }
+
+    return sendSuccess(
+      res,
+      ticket.toObject(),
+      200,
+      "Ticket updated successfully"
+    );
   } catch (err) {
-    res.status(500).json({
-      message: "Erreur lors de la mise à jour",
-      error: err.message,
-    });
+    console.error("Error updating ticket:", err);
+    return sendError(
+      res,
+      "Server error while updating ticket",
+      500,
+      err.message
+    );
   }
 });
 
-// Assigner un ticket
+/**
+ * PUT /admin/tickets/:id/assign
+ * Assign a ticket to a person
+ */
 app.put("/admin/tickets/:id/assign", adminAuth, async (req, res) => {
   try {
     const { assignedTo } = req.body;
+
+    if (!assignedTo || assignedTo.trim() === "") {
+      return sendValidationError(res, "Assigned person name is required");
+    }
 
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
       {
         isAssigned: true,
-        assignedTo,
+        assignedTo: assignedTo.trim(),
         assignedAt: new Date(),
       },
       { new: true }
     );
 
-    res.json(ticket);
+    if (!ticket) {
+      return sendError(res, "Ticket not found", 404);
+    }
+
+    return sendSuccess(
+      res,
+      ticket.toObject(),
+      200,
+      "Ticket assigned successfully"
+    );
   } catch (err) {
-    res.status(500).json({ message: "Erreur lors de l'assignation" });
+    console.error("Error assigning ticket:", err);
+    return sendError(
+      res,
+      "Server error while assigning ticket",
+      500,
+      err.message
+    );
   }
 });
 
-// Valider la présence
+/**
+ * PUT /admin/tickets/:id/validate
+ * Mark a ticket as used/validated
+ */
 app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
   try {
     const ticket = await Ticket.findByIdAndUpdate(
@@ -198,82 +378,124 @@ app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
       { new: true }
     );
 
-    res.json(ticket);
-  } catch (err) {
-    res.status(500).json({ message: "Erreur lors de la validation" });
-  }
-});
-
-// Lister tous les tickets
-app.get("/admin/tickets", adminAuth, async (req, res) => {
-  try {
-    const { status } = req.query;
-    let query = {};
-
-    if (status === "used") {
-      query.isUsed = true;
-    } else if (status === "unused") {
-      query.isUsed = false;
-    } else if (status === "assigned") {
-      query.isAssigned = true;
-    } else if (status === "unassigned") {
-      query.isAssigned = false;
+    if (!ticket) {
+      return sendError(res, "Ticket not found", 404);
     }
 
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 });
-
-    const ticketsWithQR = await Promise.all(
-      tickets.map(async (ticket) => {
-        const qrDataUrl = await QRCode.toDataURL(ticket.code);
-        return {
-          ...ticket.toObject(),
-          qrUrl: qrDataUrl,
-        };
-      })
+    return sendSuccess(
+      res,
+      ticket.toObject(),
+      200,
+      "Ticket validated successfully"
     );
-
-    res.json(ticketsWithQR);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Erreur serveur");
+    console.error("Error validating ticket:", err);
+    return sendError(
+      res,
+      "Server error while validating ticket",
+      500,
+      err.message
+    );
   }
 });
 
-// Supprimer un seul ticket par ID
+/**
+ * DELETE /tickets/:id
+ * Delete a single ticket
+ */
 app.delete("/tickets/:id", adminAuth, async (req, res) => {
   try {
-    const ticketId = req.params.id;
-    const deleted = await Ticket.findByIdAndDelete(ticketId);
+    const deleted = await Ticket.findByIdAndDelete(req.params.id);
 
     if (!deleted) {
-      return res.status(404).send("Ticket non trouvé.");
+      return sendError(res, "Ticket not found", 404);
     }
 
-    res.status(200).send("Ticket supprimé avec succès.");
-  } catch (error) {
-    console.error("Erreur lors de la suppression du ticket :", error);
-    res.status(500).send("Erreur serveur lors de la suppression.");
+    return sendSuccess(res, null, 200, "Ticket deleted successfully");
+  } catch (err) {
+    console.error("Error deleting ticket:", err);
+    return sendError(
+      res,
+      "Server error while deleting ticket",
+      500,
+      err.message
+    );
   }
 });
 
-// Supprimer tous les tickets
+/**
+ * POST /delete-all-tickets
+ * Delete all tickets (use with caution!)
+ */
 app.post("/delete-all-tickets", adminAuth, async (req, res) => {
   try {
     const result = await Ticket.deleteMany({});
-    res.status(200).send(`${result.deletedCount} tickets supprimés.`);
-  } catch (error) {
-    console.error("Erreur lors de la suppression des tickets :", error);
-    res.status(500).send("Erreur serveur lors de la suppression.");
+
+    return sendSuccess(
+      res,
+      { deletedCount: result.deletedCount },
+      200,
+      `${result.deletedCount} tickets deleted`
+    );
+  } catch (err) {
+    console.error("Error deleting all tickets:", err);
+    return sendError(
+      res,
+      "Server error while deleting tickets",
+      500,
+      err.message
+    );
   }
 });
 
-// Exporter en CSV
+/**
+ * POST /generate-tickets
+ * Generate bulk tickets (200 by default)
+ */
+app.post("/generate-tickets", adminAuth, async (req, res) => {
+  try {
+    const { count = 200 } = req.body;
+
+    if (count < 1 || count > 1000) {
+      return sendValidationError(
+        res,
+        "Ticket count must be between 1 and 1000"
+      );
+    }
+
+    const tickets = Array.from({ length: count }, () => ({
+      code: Math.floor(10000000 + Math.random() * 90000000).toString(),
+    }));
+
+    const result = await Ticket.insertMany(tickets);
+
+    return sendSuccess(
+      res,
+      { count: result.length },
+      201,
+      `Generated ${result.length} tickets successfully`
+    );
+  } catch (err) {
+    console.error("Error generating tickets:", err);
+    return sendError(
+      res,
+      "Server error while generating tickets",
+      500,
+      err.message
+    );
+  }
+});
+
+/**
+ * GET /admin/export-csv
+ * Export all tickets as CSV
+ */
 app.get("/admin/export-csv", adminAuth, async (req, res) => {
   try {
     const tickets = await Ticket.find();
+
     const fields = [
       "_id",
-      "ticketNumber",
       "code",
       "isAssigned",
       "assignedTo",
@@ -282,35 +504,110 @@ app.get("/admin/export-csv", adminAuth, async (req, res) => {
       "usedAt",
       "createdAt",
     ];
-    const opts = { fields };
 
-    const parser = new Parser(opts);
+    const parser = new Parser({ fields });
     const csv = parser.parse(tickets);
 
-    res.header("Content-Type", "text/csv");
+    res.header("Content-Type", "text/csv; charset=utf-8");
     res.attachment("tickets.csv");
     return res.send(csv);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Erreur lors de l'export");
+    console.error("Error exporting CSV:", err);
+    return sendError(
+      res,
+      "Server error while exporting data",
+      500,
+      err.message
+    );
   }
 });
 
-// MongoDB connection
-const uri =
-  process.env.DB_URI ||
-  process.env.DB_URL ||
-  `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.pznxahw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
-mongoose
-  .connect(uri)
-  .then(() => console.log("✅ MongoDB connecté"))
-  .catch((err) => console.error("❌ Erreur de connexion MongoDB:", err));
+// =====================
+// HEALTH CHECK ENDPOINT
+// =====================
 
-// Démarrer le serveur
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
-  console.log(
-    `Serveur en ligne sur le port ${PORT} : http://localhost:${PORT}`
-  );
+/**
+ * GET /health
+ * Health check endpoint
+ */
+app.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+  });
 });
 
+// =====================
+// ERROR HANDLING
+// =====================
+
+/**
+ * 404 - Route not found
+ */
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.method} ${req.path} not found`,
+  });
+});
+
+/**
+ * Global error handler
+ */
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV === "development" && { error: err.stack }),
+  });
+});
+
+// =====================
+// DATABASE & SERVER STARTUP
+// =====================
+
+const connectDatabase = async () => {
+  const mongoUri =
+    process.env.DB_URI ||
+    process.env.DB_URL ||
+    `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.pznxahw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
+  try {
+    await mongoose.connect(mongoUri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("✅ MongoDB connected successfully");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err.message);
+    process.exit(1);
+  }
+};
+
+const startServer = async () => {
+  const PORT = process.env.PORT || 3000;
+
+  // Connect to database
+  await connectDatabase();
+
+  // Start listening
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  });
+};
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  console.log("\n🛑 Shutting down gracefully...");
+  await mongoose.disconnect();
+  process.exit(0);
+});
+
+// Start server
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

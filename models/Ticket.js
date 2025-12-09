@@ -6,27 +6,51 @@ const ticketSchema = new mongoose.Schema({
     unique: true,
     required: true,
     default: () => Math.floor(10000000 + Math.random() * 90000000).toString(),
+    index: true, // Index for faster lookups
   },
-  isUsed: { type: Boolean, default: false },
-  isAssigned: { type: Boolean, default: true },
-
+  isUsed: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  isAssigned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   assignedTo: String,
   assignedEmail: String,
-  reservationId: { type: mongoose.Schema.Types.ObjectId, ref: "Reservation" },
+  assignedAt: Date,
 
+  // Reference to reservation (for reservation-to-ticket workflow)
+  reservationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Reservation",
+  },
+
+  // PDF and QR code data
   qrData: String,
   pdfUrl: String,
 
-  sent: { type: Boolean, default: false },
+  // Email sending tracking
+  sent: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   sentAt: Date,
-  assignedAt: { type: Date, default: Date.now },
+
+  // Ticket usage tracking
   usedAt: Date,
-  createdAt: { type: Date, default: Date.now },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    index: true,
+  },
 });
 
-module.exports = mongoose.model("Ticket", ticketSchema);
+// Compound index for efficient filtering
+ticketSchema.index({ isAssigned: 1, isUsed: 1 });
+ticketSchema.index({ reservationId: 1 });
 
-//const AutoIncrement = require("mongoose-sequence")(mongoose);
-//ticketNumber: { type: Number, unique: true }, // Auto-incremented ticket number
-// Auto-increment plugin for ticketNumber
-//ticketSchema.plugin(AutoIncrement, { inc_field: "ticketNumber" });
+module.exports = mongoose.model("Ticket", ticketSchema);

@@ -1,53 +1,561 @@
 # 🎫 Ticket Management System
 
-A comprehensive event ticket management system built with Node.js, Express, and MongoDB. This system provides secure ticket generation, validation, and management capabilities with QR code support and admin authentication.
+A comprehensive event ticket management system built with Node.js, Express, and MongoDB. Features secure JWT authentication, role-based access control, PDF ticket generation, QR code validation, and email delivery.
 
 ## 🚀 Features
 
 ### 🎟️ Ticket Management
-- **Bulk Ticket Generation**: Generate up to 200 tickets at once
+
+- **Bulk Ticket Generation**: Generate up to 1000 tickets at once
 - **Unique Code System**: Each ticket has a unique 8-digit code
 - **QR Code Integration**: Automatic QR code generation for each ticket
-- **Ticket Assignment**: Assign tickets to specific individuals
-- **Usage Tracking**: Track ticket usage status and timestamps
+- **PDF Generation**: Generate beautiful PDF tickets with Puppeteer (A6 size)
+- **Ticket Assignment**: Assign tickets to individuals with tracking
+- **Status Tracking**: Monitor usage and assignment status
 
 ### 🔐 Security & Authentication
-- **Admin Authentication**: Secure JWT-based admin authentication
-- **Rate Limiting**: Protection against brute force attacks (5 attempts per 15 minutes)
-- **Password Encryption**: bcrypt password hashing
-- **Token Verification**: Secure API endpoint protection
+
+- **JWT-based Authentication**: Secure token-based API authentication
+- **Role-Based Access Control**: Admin, Manager, and Normal user roles
+- **Password Encryption**: Industry-standard bcrypt password hashing
+- **Rate Limiting**: Protection against brute force attacks (5 attempts/15 min)
+- **Token Verification**: Secure API endpoint protection with middleware
+
+### 👥 User Management
+
+- **Role System**: Admin (full access), Manager (limited access), Normal (read-only)
+- **User Profiles**: Update profile information and passwords
+- **Admin Controls**: Create users, assign roles, reset passwords
+
+### 📊 Reservation Management
+
+- **Reservation Workflow**: PENDING → TICKET_CREATED → TICKET_SENT
+- **Bulk Import**: Import reservations from CSV files
+- **CSV Export**: Export ticket data to CSV format
+- **Email Delivery**: Send PDF tickets via email with customizable templates
 
 ### 📱 User Interface
-- **Responsive Design**: Bootstrap-powered responsive UI
-- **QR Code Scanner**: Built-in QR code scanning functionality
-- **Real-time Validation**: Instant ticket validation feedback
-- **Admin Dashboard**: Comprehensive ticket management interface
 
-### 📊 Data Management
-- **CSV Export**: Export ticket data to CSV format
-- **Filtering**: Filter tickets by status (used/unused, assigned/unassigned)
-- **Real-time Updates**: Live ticket status updates
-- **Database Integration**: MongoDB with Mongoose ODM
+- **Responsive Design**: Bootstrap 5 responsive UI
+- **Admin Dashboard**: Comprehensive ticket and user management interface
+- **Manager Interface**: Simplified interface for creating and importing reservations
+- **Real-time Validation**: Instant feedback on user actions
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Node.js** - Runtime environment
+
+- **Node.js** - JavaScript runtime
 - **Express.js** - Web application framework
-- **MongoDB** - Database
-- **Mongoose** - ODM for MongoDB
-- **JWT** - Authentication tokens
-- **bcrypt/bcryptjs** - Password hashing
+- **MongoDB** - NoSQL database
+- **Mongoose** - MongoDB ODM
+- **JWT (jose)** - Authentication tokens
+- **Puppeteer** - PDF generation
+- **Nodemailer** - Email delivery
 
 ### Frontend
-- **HTML5** - Markup
-- **Bootstrap 5** - CSS framework
-- **JavaScript** - Client-side functionality
-- **html5-qrcode** - QR code scanning
 
-### Additional Libraries
-- **QRCode** - QR code generation
-- **json2csv** - CSV export functionality
+- **HTML5** - Markup
+- **CSS3** - Styling with Bootstrap 5
+- **JavaScript** - Client-side logic
+- **QR Code Libraries** - html5-qrcode, qrcode
+
+## 📋 Prerequisites
+
+- **Node.js** >= 14.0.0
+- **npm** >= 6.0.0
+- **MongoDB** (Atlas or local instance)
+- **SMTP Email Service** (Gmail, SendGrid, etc.)
+
+## ⚙️ Installation & Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd ticket-system
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure Environment Variables
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```env
+# Server
+PORT=3000
+NODE_ENV=development
+BASE_URL=http://localhost:3000
+
+# Database
+DB_URI=mongodb+srv://username:password@cluster.mongodb.net/ticket_system
+
+# JWT
+JWT_SECRET=your_super_secret_key_here
+JWT_EXPIRES_IN=3h
+
+# Email
+MAIL_SERVICE=gmail
+MAIL_USER=your_email@gmail.com
+MAIL_PASS=your_app_password
+MAIL_NAME=Event Team
+```
+
+### 4. Seed Database with Default Users
+
+```bash
+npm run seed:users
+```
+
+Default credentials:
+
+- **Admin**: `admin@example.com` / `AdminPass123`
+- **Manager**: `manager@example.com` / `ManagerPass123`
+
+### 5. Start the Server
+
+```bash
+npm start
+```
+
+Server will run at `http://localhost:3000`
+
+## 📖 API Documentation
+
+### Authentication Routes
+
+#### POST /admin/login
+
+Login with email and password.
+
+```bash
+curl -X POST http://localhost:3000/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "AdminPass123"}'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "eyJhbGc...",
+    "user": { "id": "...", "email": "...", "role": "admin" }
+  }
+}
+```
+
+#### POST /admin/register
+
+Create a new user account.
+
+```bash
+curl -X POST http://localhost:3000/admin/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nom": "John",
+    "prenom": "Doe",
+    "email": "john@example.com",
+    "password": "SecurePass123",
+    "role": "manager"
+  }'
+```
+
+### Ticket Routes (Admin Only)
+
+#### GET /admin/tickets
+
+List all tickets with optional filtering.
+
+```bash
+curl -X GET "http://localhost:3000/admin/tickets?status=used" \
+  -H "Authorization: Bearer <token>"
+```
+
+Query parameters:
+
+- `status`: `used`, `unused`, `assigned`, `unassigned`
+
+#### POST /generate-tickets
+
+Generate new tickets.
+
+```bash
+curl -X POST http://localhost:3000/generate-tickets \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"count": 200}'
+```
+
+#### PUT /admin/tickets/:id
+
+Update ticket properties.
+
+```bash
+curl -X PUT http://localhost:3000/admin/tickets/<id> \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"isUsed": true, "isAssigned": true, "assignedTo": "John Doe"}'
+```
+
+#### PUT /admin/tickets/:id/validate
+
+Mark ticket as used.
+
+```bash
+curl -X PUT http://localhost:3000/admin/tickets/<id>/validate \
+  -H "Authorization: Bearer <token>"
+```
+
+#### DELETE /tickets/:id
+
+Delete a single ticket.
+
+```bash
+curl -X DELETE http://localhost:3000/tickets/<id> \
+  -H "Authorization: Bearer <token>"
+```
+
+#### GET /admin/export-csv
+
+Export all tickets as CSV.
+
+```bash
+curl -X GET http://localhost:3000/admin/export-csv \
+  -H "Authorization: Bearer <token>" > tickets.csv
+```
+
+### Reservation Routes (Manager/Admin)
+
+#### POST /api/manager/reservations
+
+Create a single reservation.
+
+```bash
+curl -X POST http://localhost:3000/api/manager/reservations \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "buyerName": "Jane Smith",
+    "buyerEmail": "jane@example.com",
+    "buyerPhone": "+1234567890",
+    "holderName": "John Smith",
+    "holderEmail": "john@example.com"
+  }'
+```
+
+#### POST /api/manager/import-reservations
+
+Import reservations from CSV.
+
+```bash
+curl -X POST http://localhost:3000/api/manager/import-reservations \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: text/plain" \
+  -d @reservations.csv
+```
+
+CSV Format:
+
+```
+buyerName,buyerEmail,buyerPhone,holderName,holderEmail
+John Doe,john@example.com,+1234567890,John Doe,john@example.com
+Jane Smith,jane@example.com,+0987654321,Jane Smith,jane@example.com
+```
+
+#### GET /api/manager/reservations
+
+List reservations (managers see their own, admins see all).
+
+```bash
+curl -X GET http://localhost:3000/api/manager/reservations \
+  -H "Authorization: Bearer <token>"
+```
+
+### Admin Reservation Routes
+
+#### POST /api/admin/generate-tickets-from-reservations
+
+Generate tickets from PENDING reservations.
+
+```bash
+curl -X POST http://localhost:3000/api/admin/generate-tickets-from-reservations \
+  -H "Authorization: Bearer <token>"
+```
+
+#### POST /api/admin/send-tickets-from-reservations
+
+Send emails for TICKET_CREATED reservations.
+
+```bash
+curl -X POST http://localhost:3000/api/admin/send-tickets-from-reservations \
+  -H "Authorization: Bearer <token>"
+```
+
+### User Routes
+
+#### GET /api/users/me
+
+Get current user profile.
+
+```bash
+curl -X GET http://localhost:3000/api/users/me \
+  -H "Authorization: Bearer <token>"
+```
+
+#### PUT /api/users/me
+
+Update user profile or change password.
+
+```bash
+curl -X PUT http://localhost:3000/api/users/me \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nom": "John",
+    "prenom": "Doe",
+    "currentPassword": "OldPassword123",
+    "newPassword": "NewPassword123"
+  }'
+```
+
+#### GET /api/users (Admin Only)
+
+List all users.
+
+```bash
+curl -X GET http://localhost:3000/api/users \
+  -H "Authorization: Bearer <token>"
+```
+
+#### PUT /api/users/:id/role (Admin Only)
+
+Change user role.
+
+```bash
+curl -X PUT http://localhost:3000/api/users/<id>/role \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "manager"}'
+```
+
+## 📁 Project Structure
+
+```
+ticket-system/
+├── index.js                 # Main server file
+├── package.json             # Dependencies
+├── .env.example             # Environment template
+├── README.md                # This file
+│
+├── middlewares/
+│   ├── adminAuth.js         # Admin-only middleware
+│   ├── verifyToken.js       # JWT verification
+│   └── roleAuth.js          # Role-based authorization
+│
+├── models/
+│   ├── User.js              # User schema
+│   ├── Ticket.js            # Ticket schema
+│   └── Reservation.js       # Reservation schema
+│
+├── routes/
+│   ├── auth.js              # Login/Register routes
+│   ├── admin.js             # Admin routes
+│   ├── manager.js           # Manager routes
+│   └── users.js             # User management routes
+│
+├── services/
+│   ├── mailService.js       # Email sending
+│   └── ticketPdfService.js  # PDF generation
+│
+├── utils/
+│   ├── jwtUtils.js          # JWT utilities
+│   └── responseUtils.js     # Standardized responses
+│
+├── scripts/
+│   └── seedUsers.js         # Database seeding
+│
+├── views/
+│   └── ticket.ejs           # PDF ticket template
+│
+└── public/
+    ├── admin.html           # Admin dashboard
+    ├── admin-auth.html      # Login/Register page
+    ├── manager.html         # Manager interface
+    ├── profile.html         # User profile
+    ├── users.html           # User management
+    ├── scan.html            # QR code scanner
+    ├── logo.png             # Logo
+    └── background.jpg       # Background image
+```
+
+## 🔐 Security Considerations
+
+1. **JWT_SECRET**: Change to a strong random string in production
+2. **HTTPS**: Always use HTTPS in production
+3. **Database**: Use MongoDB Atlas with IP whitelisting
+4. **Email Credentials**: Use app-specific passwords for email services
+5. **Rate Limiting**: Already configured for login endpoint
+6. **CORS**: Configure for your specific domain in production
+
+## 🚀 Deployment
+
+### Environment Setup for Production
+
+```env
+NODE_ENV=production
+PORT=3000
+JWT_SECRET=<long-random-string>
+DB_URI=<mongodb-atlas-uri>
+MAIL_SERVICE=gmail
+MAIL_USER=<your-email>
+MAIL_PASS=<app-password>
+```
+
+### Deploy to Heroku
+
+```bash
+heroku login
+heroku create your-app-name
+git push heroku main
+```
+
+### Deploy to Render
+
+```bash
+# Connect your GitHub repository to Render
+# Set environment variables in dashboard
+# Deploy from Render dashboard
+```
+
+## 🐛 Troubleshooting
+
+### MongoDB Connection Error
+
+- Verify DB_URI in .env
+- Check IP whitelist in MongoDB Atlas
+- Ensure network connectivity
+
+### Email Not Sending
+
+- Verify MAIL_USER and MAIL_PASS
+- For Gmail: Enable 2FA and use App Password
+- Check firewall/SMTP port 587
+
+### PDF Generation Issues
+
+- Ensure Puppeteer is installed: `npm install puppeteer`
+- Check server has sufficient memory
+- Verify ticket.ejs template exists
+
+### JWT Token Expired
+
+- Increase JWT_EXPIRES_IN if needed
+- Users need to re-login after expiration
+
+## 📊 Database Schemas
+
+### User
+
+```javascript
+{
+  nom: String,
+  prenom: String,
+  email: String (unique),
+  password: String (hashed),
+  role: "admin" | "manager" | "normal",
+  createdAt: Date
+}
+```
+
+### Ticket
+
+```javascript
+{
+  code: String (unique, 8 digits),
+  isUsed: Boolean,
+  isAssigned: Boolean,
+  assignedTo: String,
+  assignedEmail: String,
+  assignedAt: Date,
+  usedAt: Date,
+  reservationId: ObjectId,
+  pdfUrl: String,
+  qrData: String,
+  sent: Boolean,
+  sentAt: Date,
+  createdAt: Date
+}
+```
+
+### Reservation
+
+```javascript
+{
+  eventId: ObjectId,
+  buyerName: String,
+  buyerEmail: String,
+  buyerPhone: String,
+  holderName: String,
+  holderEmail: String,
+  ticketId: ObjectId,
+  status: "PENDING" | "TICKET_CREATED" | "TICKET_SENT",
+  createdBy: ObjectId,
+  createdAt: Date
+}
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📝 License
+
+ISC License - See LICENSE file for details
+
+## 👨‍💻 Author
+
+**Moussa BANE** - Initial development and maintenance
+
+## 📞 Support
+
+For issues, questions, or suggestions:
+
+1. Check existing issues on GitHub
+2. Create detailed issue with reproduction steps
+3. Contact: <moussa.bane@example.com>
+
+## 🗺️ Roadmap
+
+- [ ] Two-factor authentication (2FA)
+- [ ] SMS notifications for ticket delivery
+- [ ] Advanced analytics dashboard
+- [ ] Multi-language support
+- [ ] Mobile app
+- [ ] Payment integration
+- [ ] Barcode scanner support
+- [ ] Event scheduling system
+
+---
+
+**Last Updated**: December 2024
+**Version**: 1.0.0
+
 - **express-rate-limit** - Rate limiting
 - **validator** - Data validation
 - **cors** - Cross-origin resource sharing

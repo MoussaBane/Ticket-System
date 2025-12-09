@@ -1,48 +1,89 @@
-const QRCode = require('qrcode');
-const puppeteer = require('puppeteer');
-const ejs = require('ejs');
-const path = require('path');
-const fs = require('fs');
+/**
+ * Ticket PDF Generation Service
+ * Generates PDF tickets with QR codes using Puppeteer
+ */
 
-// Use a small inline SVG as a safe default background to avoid missing static files
-const BACKGROUND_URL = 'data:image/svg+xml;base64,' + Buffer.from(`
-<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300">
-  <rect width="100%" height="100%" fill="#f8f9fa" />
-  <text x="20" y="40" font-size="20" fill="#333">Ticket</text>
-</svg>
-`).toString('base64');
+const QRCode = require("qrcode");
+const puppeteer = require("puppeteer");
+const ejs = require("ejs");
+const path = require("path");
+const fs = require("fs");
 
+/**
+ * Generate a PDF ticket with QR code
+ * @param {Object} ticket - Ticket document with code and assignedTo
+ * @returns {Promise<Object>} Object with publicUrl and qrData
+ * @throws {Error} If PDF generation fails
+ */
 async function generateTicketPdf(ticket) {
-  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-  const validationUrl = `${baseUrl}/validate?code=${ticket.code}`;
-  const qrData = await QRCode.toDataURL(validationUrl);
+  if (!ticket.code) {
+    throw new Error("Ticket must have a code");
+  }
 
-  const templatePath = path.join(__dirname, '..', 'views', 'ticket.ejs');
+  try {
+    // Generate QR code pointing to validation URL
+    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const validationUrl = `${baseUrl}/validate?code=${ticket.code}`;
+    const qrData = await QRCode.toDataURL(validationUrl);
 
-  const html = await ejs.renderFile(templatePath, {
-    code: ticket.code,
-    assignedTo: ticket.assignedTo,
-    qrData,
-    backgroundUrl: BACKGROUND_URL
-  });
+    // Render EJS template with ticket data
+    const templatePath = path.join(__dirname, "..", "views", "ticket.ejs");
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+    if (!fs.existsSync(templatePath)) {
+      throw new Error(`Ticket template not found at ${templatePath}`);
+    }
 
-  const pdfBuffer = await page.pdf({ format: 'A6', printBackground: true });
-  await browser.close();
+    const html = await ejs.renderFile(templatePath, {
+      code: ticket.code,
+      assignedTo: ticket.assignedTo || "GUEST",
+      qrData,
+      backgroundUrl: process.env.TICKET_BACKGROUND_URL || "/background.jpg",
+    });
 
-  const ticketsDir = path.join(__dirname, '..', 'public', 'tickets');
-  if (!fs.existsSync(ticketsDir)) fs.mkdirSync(ticketsDir, { recursive: true });
+    // Launch Puppeteer and generate PDF
+    const browser = await puppeteer.launch({
+      headless: "new", // Use new headless mode
+      args: ["--no-sandbox", "--disable-setuid-sandbox"], // For server environments
+    });
 
-  const fileName = `ticket-${ticket.code}.pdf`;
-  const filePath = path.join(ticketsDir, fileName);
-  fs.writeFileSync(filePath, pdfBuffer);
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
-  const publicUrl = `/tickets/${fileName}`;
+    // Generate PDF with A6 format (small ticket size)
+    const pdfBuffer = await page.pdf({
+      format: "A6",
+      printBackground: true,
+      margin: {
+        top: "0.25in",
+        right: "0.25in",
+        bottom: "0.25in",
+        left: "0.25in",
+      },
+    });
 
-  return { publicUrl, qrData };
+    await browser.close();
+
+    // Save PDF to public folder
+    const ticketsDir = path.join(__dirname, "..", "public", "tickets");
+
+    if (!fs.existsSync(ticketsDir)) {
+      fs.mkdirSync(ticketsDir, { recursive: true });
+    }
+
+    const fileName = `ticket-${ticket.code}.pdf`;
+    const filePath = path.join(ticketsDir, fileName);
+
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    const publicUrl = `/tickets/${fileName}`;
+
+    console.log(`PDF generated successfully: ${fileName}`);
+
+    return { publicUrl, qrData };
+  } catch (err) {
+    console.error("Error generating ticket PDF:", err);
+    throw new Error(`PDF generation failed: ${err.message}`);
+  }
 }
 
 module.exports = { generateTicketPdf };

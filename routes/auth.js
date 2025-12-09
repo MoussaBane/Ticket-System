@@ -1,147 +1,129 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const rateLimit = require("express-rate-limit");
+const { generateToken } = require("../utils/jwtUtils");
+const {
+  sendSuccess,
+  sendError,
+  sendValidationError,
+} = require("../utils/responseUtils");
 
-// Limiter les tentatives de connexion
+/**
+ * Rate limiter for login attempts
+ * Prevents brute force attacks
+ */
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 tentatives max
+  max: 5, // 5 attempts max per IP
   message: {
     success: false,
-    message: "Trop de tentatives de connexion, veuillez réessayer plus tard.",
+    message: "Too many login attempts. Please try again later.",
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Connexion avec limitation de taux
+/**
+ * POST /admin/login
+ * Authenticate user and return JWT token
+ */
 router.post("/login", loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
-  // Validation basique
+  // Validation
   if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Email et mot de passe requis",
-    });
+    return sendValidationError(res, [
+      "Email is required",
+      "Password is required",
+    ]);
   }
 
   try {
-    // Vérifier si l'utilisateur existe
+    // Find user by email (include password field)
     const user = await User.findOne({ email }).select("+password");
+
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Identifiants incorrects",
-      });
+      return sendError(res, "Invalid email or password", 401);
     }
 
-    // Vérifier le mot de passe
+    // Compare passwords
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Identifiants incorrects",
-      });
+      return sendError(res, "Invalid email or password", 401);
     }
 
-    // Générer le token JWT
-    const jwt = require("jsonwebtoken");
-    const token = jwt.sign(
-      {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "3h" }
-    );
+    // Generate JWT token
+    const token = await generateToken(user);
 
-    // Renvoyer la réponse sans le mot de passe
+    // Return user data without password
     const userData = user.toObject();
     delete userData.password;
 
-    res.json({
-      success: true,
-      token,
-      user: userData,
-    });
+    return sendSuccess(res, { token, user: userData }, 200, "Login successful");
   } catch (err) {
-    console.error("Erreur de connexion:", err);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
-    });
+    console.error("Login error:", err);
+    return sendError(res, "Server error during login", 500, err.message);
   }
 });
 
-// Inscription admin (protéger cette route en production)
+/**
+ * POST /admin/register
+ * Create a new user account
+ * Note: In production, restrict this endpoint to admin-only
+ */
 router.post("/register", async (req, res) => {
   const { nom, prenom, email, password } = req.body;
 
   // Validation
-  if (!nom || !prenom || !email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Tous les champs sont requis",
-    });
-  }
+  const errors = [];
+  if (!nom || nom.trim() === "") errors.push("First name (nom) is required");
+  if (!prenom || prenom.trim() === "")
+    errors.push("Last name (prenom) is required");
+  if (!email || email.trim() === "") errors.push("Email is required");
+  if (!password) errors.push("Password is required");
+  else if (password.length < 8)
+    errors.push("Password must be at least 8 characters");
 
-  if (password.length < 8) {
-    return res.status(400).json({
-      success: false,
-      message: "Le mot de passe doit contenir au moins 8 caractères",
-    });
+  if (errors.length > 0) {
+    return sendValidationError(res, errors);
   }
 
   try {
-    // Vérifier si l'email existe déjà
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: "Email déjà utilisé",
-      });
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return sendError(res, "Email is already registered", 400);
     }
 
-    // Créer le nouvel utilisateur
+    // Create new user
     const newUser = new User({
-      nom,
-      prenom,
-      email,
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      email: email.toLowerCase().trim(),
       password,
-      role: req.body.role || "normal",
+      role: req.body.role || "normal", // Defaults to 'normal'
     });
 
-    // Sauvegarder (le pre-save hash le mot de passe)
+    // Save user (triggers password hashing via pre-save hook)
     await newUser.save();
 
-    // Générer le token automatiquement
-    const jwt = require("jsonwebtoken");
-    const token = jwt.sign(
-      { id: newUser._id, email: newUser.email, role: newUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "3h" }
-    );
+    // Generate JWT token
+    const token = await generateToken(newUser);
 
-    // Renvoyer la réponse
+    // Return user data without password
     const userData = newUser.toObject();
     delete userData.password;
 
-    res.status(201).json({
-      success: true,
-      message: "Utilisateur créé avec succès",
-      token,
-      user: userData,
-    });
+    return sendSuccess(
+      res,
+      { token, user: userData },
+      201,
+      "User registered successfully"
+    );
   } catch (err) {
-    console.error("Erreur d'inscription:", err);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
-    });
+    console.error("Registration error:", err);
+    return sendError(res, "Server error during registration", 500, err.message);
   }
 });
 
