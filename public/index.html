@@ -20,7 +20,7 @@
 
       body {
         background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
-          url("/background.jpg") no-repeat center center fixed;
+          url("/background.png") no-repeat center center fixed;
         background-size: cover;
         color: white;
         min-height: 100vh;
@@ -69,12 +69,12 @@
     <div class="container py-5">
       <header class="text-center mb-5">
         <img
-          src="/logo.png"
+          src="/logo.jpg"
           alt="Logo YachtParty"
           class="img-fluid rounded-circle shadow-lg border border-1 border-white"
           style="max-height: 140px; background: black; padding: 0px"
         />
-        <h1 class="mt-3">🎟️ AEEMIST TABASKI YACHT PARTY 🎟️</h1>
+        <h1 class="mt-3">🎟️ A.E.E.M.T. CONCERT LIL-DOU 🎟️</h1>
         <p class="lead"><b>Validation de tickets</b></p>
       </header>
 
@@ -170,10 +170,10 @@
         const resultDiv = document.getElementById("result");
 
         // Validation basique
-        if (!code || code.length !== 8) {
+        if (!code || code.length !== 6) {
           resultDiv.innerHTML = `
             <div class="alert alert-warning w-100">
-                <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 8 caractères
+                <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 6 caractères
             </div>`;
           return;
         }
@@ -210,7 +210,7 @@
 
           if (response.status === 403) {
             throw new Error(
-              "Accès refusé: vous n'avez pas les droits nécessaires"
+              "Accès refusé: vous n'avez pas les droits nécessaires."
             );
           }
 

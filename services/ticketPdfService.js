@@ -37,7 +37,7 @@ async function generateTicketPdf(ticket) {
       code: ticket.code,
       assignedTo: ticket.assignedTo || "GUEST",
       qrData,
-      backgroundUrl: process.env.TICKET_BACKGROUND_URL || "/background.jpg",
+      backgroundUrl: process.env.TICKET_BACKGROUND_URL || "/background.png",
     });
 
     // Launch Puppeteer and generate PDF

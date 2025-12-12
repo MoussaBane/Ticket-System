@@ -274,6 +274,6 @@ A: GET /admin/export-csv downloads as CSV file
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 3.0.0  
 **Status**: ✅ Production Ready  
 **Updated**: December 2024

@@ -396,8 +396,8 @@ ticket-system/
     ├── profile.html         # User profile
     ├── users.html           # User management
     ├── scan.html            # QR code scanner
-    ├── logo.png             # Logo
-    └── background.jpg       # Background image
+    ├── logo.jpg             # Logo
+    └── background.png       # Background image
 ```
 
 ## 🔐 Security Considerations

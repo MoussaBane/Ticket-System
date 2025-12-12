@@ -464,7 +464,7 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
     }
 
     const tickets = Array.from({ length: count }, () => ({
-      code: Math.floor(10000000 + Math.random() * 90000000).toString(),
+      code: Math.floor(100000 + Math.random() * 900000).toString(),
     }));
 
     const result = await Ticket.insertMany(tickets);

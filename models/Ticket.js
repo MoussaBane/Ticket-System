@@ -5,7 +5,7 @@ const ticketSchema = new mongoose.Schema({
     type: String,
     unique: true,
     required: true,
-    default: () => Math.floor(10000000 + Math.random() * 90000000).toString(),
+    default: () => Math.floor(100000 + Math.random() * 900000).toString(),
     index: true, // Index for faster lookups
   },
   isUsed: {

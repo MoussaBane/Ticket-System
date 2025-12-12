@@ -76,7 +76,7 @@ router.post(
         try {
           // Create new ticket
           const ticket = new Ticket({
-            code: Math.floor(10000000 + Math.random() * 90000000).toString(),
+            code: Math.floor(100000 + Math.random() * 900000).toString(),
             isAssigned: true,
             assignedTo: reservation.holderName,
             assignedEmail: reservation.holderEmail,
