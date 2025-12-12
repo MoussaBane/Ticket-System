@@ -483,7 +483,7 @@ git push heroku main
 
 ```javascript
 {
-  code: String (unique, 8 digits),
+  code: String (unique, 6 digits),
   isUsed: Boolean,
   isAssigned: Boolean,
   assignedTo: String,
