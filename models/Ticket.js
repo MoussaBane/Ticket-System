@@ -21,6 +21,16 @@ const ticketSchema = new mongoose.Schema({
   assignedTo: String,
   assignedEmail: String,
   assignedAt: Date,
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+  ticketType: {
+    type: String,
+    enum: ["VIP", "NORMAL"],
+    default: "NORMAL",
+    index: true,
+  },
 
   // Reference to reservation (for reservation-to-ticket workflow)
   reservationId: {

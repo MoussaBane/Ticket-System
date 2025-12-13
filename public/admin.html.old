@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Panel - TicketSystem</title>
+    <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+    <meta name="description" content="Interface de gestion des tickets pour Concert Lil-Dou de l'AEEMT." />
+    <meta name="author" content="Moussa BANE" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
+      rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
+
+    <style>
+      :root {
+        --primary-color: #0ea5e9;
+        --primary-dark: #0b7bb0;
+        --surface-color: rgba(15, 23, 42, 0.6);
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-color: #e2e8f0;
+      }
+
+      body {
+        background: radial-gradient(circle at 10% 10%, rgba(14, 165, 233, 0.12), transparent 30%),
+          radial-gradient(circle at 90% 20%, rgba(34, 211, 238, 0.1), transparent 25%),
+          linear-gradient(145deg, #0f172a 0%, #0b1220 60%, #0a0f1c 100%),
+          url("/background.png") center/cover no-repeat fixed;
+        color: var(--text-color);
+        min-height: 100vh;
+      }
+
+      .container, .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .navbar {
+        min-width: 0;
+        width: 100%;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      .navbar-brand img {
+        height: 56px;
+        background: #fff;
+        border-radius: 50%;
+        padding: 4px;
+        border: 2px solid #6f42c1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        transition: height 0.2s;
+      }
+
+      .card {
+        background: var(--surface-color);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border-color);
+        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 46px rgba(0, 0, 0, 0.45);
+      }
+
+      .table-container {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .table {
+        color: var(--text-color);
+        margin-bottom: 0;
+        min-width: 720px;
+      }
+
+      .table thead th {
+        background: linear-gradient(90deg, rgba(14, 165, 233, 0.18), rgba(14, 165, 233, 0.05));
+        border-bottom: 1px solid var(--border-color);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .table tbody tr {
+        background-color: rgba(255, 255, 255, 0.02);
+      }
+
+      .table tbody tr:hover {
+        background-color: rgba(14, 165, 233, 0.05);
+      }
+
+      .pagination .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-dark);
+      }
+
+      .pagination .page-link {
+        color: var(--text-color);
+        background-color: transparent;
+        border-color: var(--border-color);
+      }
+
+      .status-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .status-used {
+        background: linear-gradient(120deg, #16a34a, #22c55e);
+        color: #0b1c11;
+      }
+
+      .status-unused {
+        background: linear-gradient(120deg, #ef4444, #f87171);
+        color: #2a0c0c;
+      }
+
+      .status-assigned {
+        background: linear-gradient(120deg, #0ea5e9, #22d3ee);
+        color: #06222e;
+      }
+
+      .status-available {
+        background: linear-gradient(120deg, #f59e0b, #fbbf24);
+        color: #2f1b04;
+      }
+
+      .empty-state {
+        padding: 32px 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed var(--border-color);
+        border-radius: 12px;
+        text-align: center;
+        color: #cbd5e1;
+      }
+
+      .btn-primary {
+        background: linear-gradient(120deg, var(--primary-color), #22d3ee);
+        border: none;
+        color: #0b1220;
+        font-weight: 600;
+        box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
+      }
+
+      .btn-primary:hover {
+        background: linear-gradient(120deg, #22d3ee, var(--primary-color));
+        transform: translateY(-1px);
+        color: #0b1220;
+      }
+
+      /* Responsive styles */
+      @media (max-width: 992px) {
+        .navbar-brand span {
+          font-size: 1rem;
+        }
+        .navbar-brand img {
+          height: 44px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .display-6 {
+          font-size: 1.2rem;
+        }
+        .card-title {
+          font-size: 1rem;
+        }
+        .table {
+          font-size: 0.85rem;
+        }
+        .navbar-brand span {
+          font-size: 0.9rem;
+        }
+        .table-container {
+          border-radius: 0.5rem;
+          margin-left: -0.5rem;
+          margin-right: -0.5rem;
+          width: calc(100% + 1rem);
+        }
+        .table-responsive {
+          overflow-x: auto;
+        }
+        .btn-group .btn,
+        .btn,
+        .form-select,
+        .input-group-text,
+        .form-control {
+          font-size: 0.95rem !important;
+          padding: 0.3rem 0.5rem !important;
+        }
+        .table td,
+        .table th {
+          padding: 0.4rem;
+          white-space: nowrap;
+        }
+        .status-badge {
+          padding: 0.2rem 0.4rem;
+          font-size: 0.75rem;
+        }
+        .dropdown-menu {
+          font-size: 0.95rem;
+        }
+        .img-thumbnail {
+          width: 48px !important;
+          height: auto;
+        }
+        .navbar-brand img {
+          height: 40px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .navbar-brand span {
+          font-size: 0.8rem;
+          white-space: normal;
+          word-break: break-word;
+        }
+        .navbar-brand img {
+          height: 36px !important;
+        }
+        .container, .container-fluid {
+          padding-left: 2px;
+          padding-right: 2px;
+        }
+        .table-container {
+          border-radius: 0.3rem;
+          margin-left: -0.3rem;
+          margin-right: -0.3rem;
+          width: calc(100% + 0.6rem);
+        }
+        .table {
+          font-size: 0.8rem;
+        }
+        .img-thumbnail {
+          width: 36px !important;
+        }
+        .btn-group .btn,
+        .btn,
+        .form-select,
+        .input-group-text,
+        .form-control {
+          font-size: 0.85rem !important;
+          padding: 0.2rem 0.3rem !important;
+        }
+      }
+    </style>
+
+  </head>
+  <body>
+    <!-- Barre de navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: rgba(0, 0, 0, 0.7)">
+      <div class="container-fluid">
+        <!-- Logo et titre -->
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <img src="/logo.jpg" alt="YachtParty Logo" class="img-fluid navbar-logo me-2" />
+          <span class="fw-bold">AdminPanel - <b>A.E.E.M.T. CONCERT LIL-DOU</b></span>
+        </a>
+        <!-- Bouton toggler pour mobile -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <!-- Contenu du menu -->
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <div
+            class="ms-auto d-flex align-items-center gap-2 flex-wrap mt-2 mt-lg-0">
+            <button class="btn btn-outline-light" onclick="refreshData()">
+              <b><i class="bi bi-arrow-clockwise"></i> Actualiser</b>
+            </button>
+
+            <div id="admin-controls" class="dropdown">
+              <button class="btn btn-outline-warning dropdown-toggle"
+                type="button" data-bs-toggle="dropdown">
+                <b><i class="bi bi-tools"></i> Actions Admin</b>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end bg-dark text-white">
+                <li>
+                  <a class="dropdown-item text-light" href="/users.html">
+                    <i class="bi bi-people"></i> Gérer Utilisateurs
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <button class="dropdown-item text-success"
+                    onclick="generateTickets()">
+                    <i class="bi bi-ticket-perforated"></i> Générer Tickets
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-primary" onclick="generateFromReservations()">
+                    <i class="bi bi-box-seam"></i> Générer depuis réservations
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-info" onclick="sendTicketsFromReservations()">
+                    <i class="bi bi-send"></i> Envoyer tickets (créés)
+                  </button>
+                </li>
+                <li>
+                  <button class="dropdown-item text-danger"
+                    onclick="deleteAllTickets()">
+                    <i class="bi bi-trash3"></i> Supprimer Tous
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <a class="btn btn-outline-info" href="/">
+              <b><i class="bi bi-check2-all"></i> Ticket-Validation</b>
+            </a>
+
+            <a class="btn btn-outline-light" href="/profile.html">
+              <b><i class="bi bi-person-circle"></i> Mon Profil</b>
+            </a>
+
+            <button class="btn btn-outline-danger" onclick="logout()">
+              <b><i class="bi bi-box-arrow-right"></i> Déconnexion</b>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <!-- Cartes statistiques - Version responsive -->
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3 mb-4">
+        <div class="col">
+          <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+              <h5 class="card-title text-primary">
+                <i class="bi bi-ticket-perforated"></i> Total
+              </h5>
+              <p id="totalCount" class="display-6 fw-bold">0</p>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card h-100 border-info">
+            <div class="card-body text-center">
+              <h5 class="card-title text-info">
+                <i class="bi bi-person-check"></i> Assignés
+              </h5>
+              <p id="assignedCount" class="display-6 fw-bold">0</p>
+              <small id="assignedPercent" class="text-muted">0%</small>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card h-100 border-success">
+            <div class="card-body text-center">
+              <h5 class="card-title text-success">
+                <i class="bi bi-check-circle"></i> Présents
+              </h5>
+              <p id="usedCount" class="display-6 fw-bold">0</p>
+              <small id="usedPercent" class="text-muted">0%</small>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card h-100 border-warning">
+            <div class="card-body text-center">
+              <h5 class="card-title text-warning">
+                <i class="bi bi-hourglass"></i> Disponibles
+              </h5>
+              <p id="availableCount" class="display-6 fw-bold">0</p>
+              <small id="availablePercent" class="text-muted">0%</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barre d'outils optimisée mobile -->
+      <div class="row g-2 mb-4">
+        <div class="col-12 col-md-6 col-lg-4 order-1">
+          <div class="input-group">
+            <span class="input-group-text bg-dark text-white"><i
+                class="bi bi-search"></i></span>
+            <input
+              type="text"
+              id="searchInput"
+              class="form-control bg-dark text-white"
+              placeholder="Rechercher ticket..." />
+            <button class="btn btn-outline-primary" onclick="clearSearch()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-8 col-md-4 col-lg-3 order-2 order-md-3">
+          <select
+            id="statusFilter"
+            class="form-select bg-dark text-white"
+            onchange="filterByStatus()">
+            <option value="all">Tous statuts</option>
+            <option value="assigned">Assignés</option>
+            <option value="unassigned">Non assignés</option>
+            <option value="used">Présents</option>
+            <option value="unused">Non utilisés</option>
+          </select>
+        </div>
+
+        <div class="col-4 col-md-2 col-lg-5 order-3 order-md-2 text-end">
+          <div class="dropdown d-inline-block">
+            <button
+              class="btn btn-outline-secondary dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown">
+              <i class="bi bi-download"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li class="bg-info">
+                <button class="dropdown-item" onclick="exportToCSV()">
+                  <b><i class="bi bi-file-earmark-excel"></i> CSV</b>
+                </button>
+              </li>
+              <li class="bg-primary">
+                <button class="dropdown-item" onclick="printTickets()">
+                  <b><i class="bi bi-printer"></i> Imprimer</b>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tableau optimisé mobile -->
+      <div class="table-container">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Code</th>
+                <th scope="col">Statut</th>
+                <th scope="col">Assigné à</th>
+                <th scope="col">QR</th>
+                <th scope="col">Assigné le</th>
+                <th scope="col">Validé le</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ticket-list">
+              <!-- Contenu dynamique -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pagination responsive -->
+      <nav aria-label="Page navigation">
+        <ul
+          class="pagination justify-content-center flex-wrap mt-3"
+          id="pagination">
+          <!-- Rempli dynamiquement -->
+        </ul>
+      </nav>
+    </div>
+
+    <!-- Modal de confirmation -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Confirmation</h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="confirmModalBody">
+            <!-- Contenu dynamique -->
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal">
+              Annuler
+            </button>
+            <button type="button" class="btn btn-primary" id="confirmActionBtn">
+              Confirmer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal pour l'édition -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Modifier Ticket</h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="editIsUsed" />
+              <label class="form-check-label" for="editIsUsed">Présent à
+                l'événement</label>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="editIsAssigned" />
+              <label class="form-check-label" for="editIsAssigned">Ticket
+                assigné</label>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Assigné à</label>
+              <input type="text" class="form-control" id="editAssignedTo" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal">
+              Annuler
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="saveTicketChanges()">
+              Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Configuration
+      const itemsPerPage = 20;
+      let currentPage = 1;
+      let ticketsData = [];
+      let filteredData = [];
+      const token = localStorage.getItem("token");
+      const confirmModal = new bootstrap.Modal(
+        document.getElementById("confirmModal")
+      );
+
+      // Vérification de l'authentification
+      if (!token) {
+        window.location.href = "/admin-auth.html";
+      }
+
+      // Fonctions principales
+      function renderTable(tickets, page = 1) {
+        const ticketList = document.getElementById("ticket-list");
+        ticketList.innerHTML = "";
+
+        let assigned = 0,
+          used = 0,
+          available = 0;
+        tickets.forEach((ticket) => {
+          if (ticket.isUsed) used++;
+          if (ticket.isAssigned) assigned++;
+          if (!ticket.isAssigned) available++;
+        });
+
+        // Mise à jour des statistiques (évite la division par zéro)
+        document.getElementById("totalCount").textContent = tickets.length;
+        document.getElementById("assignedCount").textContent = assigned;
+        document.getElementById("usedCount").textContent = used;
+        document.getElementById("availableCount").textContent = available;
+        const total = tickets.length || 1;
+        document.getElementById("assignedPercent").textContent = `${Math.round(
+          (assigned / total) * 100
+        )}%`;
+        document.getElementById("usedPercent").textContent = `${Math.round(
+          (used / total) * 100
+        )}%`;
+        document.getElementById("availablePercent").textContent = `${Math.round(
+          (available / total) * 100
+        )}%`;
+
+        const startIndex = (page - 1) * itemsPerPage;
+        const paginatedItems = tickets.slice(
+          startIndex,
+          startIndex + itemsPerPage
+        );
+
+        if (paginatedItems.length === 0) {
+          ticketList.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="bi bi-inboxes me-2"></i>Aucun ticket pour le moment</div></td></tr>`;
+          renderPagination(0, page);
+          return;
+        }
+
+        // Remplissage du tableau
+        paginatedItems.forEach((ticket, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${startIndex + index + 1}</td>
+            <td><code>${ticket.code}</code></td>
+            <td>
+              <span class="status-badge ${
+                ticket.isUsed
+                  ? "status-used"
+                  : ticket.isAssigned
+                  ? "status-assigned"
+                  : "status-available"
+              }">
+                ${
+                  ticket.isUsed
+                    ? '<i class="bi bi-check-circle"></i> Présent'
+                    : ticket.isAssigned
+                    ? '<i class="bi bi-person-check"></i> Assigné'
+                    : '<i class="bi bi-hourglass"></i> Disponible'
+                }
+              </span>
+            </td>
+            <td>${ticket.assignedTo || "N/A"}</td>
+            <td><img src="${
+              ticket.qrUrl
+            }" width="80" class="img-thumbnail"></td>
+            <td>${
+              ticket.assignedAt ? formatDate(ticket.assignedAt) : "N/A"
+            }</td>
+            <td>${ticket.isUsed ? formatDate(ticket.usedAt) : "N/A"}</td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                ${
+                  !ticket.isAssigned
+                    ? `
+                  <button class="btn btn-info" onclick="assignTicket('${ticket._id}')">
+                    <i class="bi bi-person-plus"></i>
+                  </button>
+                `
+                    : ""
+                }
+                ${
+                  ticket.isAssigned && !ticket.isUsed
+                    ? `
+                  <button class="btn btn-success" onclick="validateTicket('${
+                    ticket._id
+                  }')" ${ticket.isAssigned ? "disabled" : ""}>
+                    <i class="bi bi-check-lg"></i>
+                  </button>
+                `
+                    : ""
+                }
+                <button class="btn btn-warning" onclick="showEditModal('${
+                  ticket._id
+                }')">
+                  <i class="bi bi-pencil"></i>
+                </button>
+              </div>
+            </td>
+          `;
+          ticketList.appendChild(row);
+        });
+
+        // Mise à jour de la pagination
+        renderPagination(tickets.length, page);
+      }
+
+      async function assignTicket(ticketId) {
+        const assignedTo = prompt("Nom de la personne assignée:");
+        if (!assignedTo) return;
+
+        try {
+          const response = await fetch(`/admin/tickets/${ticketId}/assign`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ assignedTo }),
+          });
+
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erreur lors de l'assignation");
+          }
+
+          showToast("success", `Ticket assigné à ${result.data.assignedTo}`);
+          loadTickets();
+        } catch (error) {
+          showToast("danger", error.message || "Erreur lors de l'assignation");
+        }
+      }
+
+      async function validateTicket(ticketId) {
+        try {
+          const response = await fetch(`/admin/tickets/${ticketId}/validate`, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erreur lors de la validation");
+          }
+
+          showToast(
+            "success",
+            `Présence enregistrée pour le ticket ${result.data.code}`
+          );
+          loadTickets();
+        } catch (error) {
+          showToast("danger", error.message || "Erreur lors de la validation");
+        }
+      }
+
+      function renderPagination(totalItems, currentPage) {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = "";
+
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+        if (totalPages <= 1) return;
+
+        // Bouton Précédent
+        pagination.innerHTML += `
+          <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+            <a class="page-link" href="#" onclick="changePage(${
+              currentPage - 1
+            })">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+        `;
+
+        // Pages
+        for (let i = 1; i <= totalPages; i++) {
+          pagination.innerHTML += `
+            <li class="page-item ${i === currentPage ? "active" : ""}">
+              <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+            </li>
+          `;
+        }
+
+        // Bouton Suivant
+        pagination.innerHTML += `
+          <li class="page-item ${currentPage === totalPages ? "disabled" : ""}">
+            <a class="page-link" href="#" onclick="changePage(${
+              currentPage + 1
+            })">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+        `;
+      }
+
+      function changePage(page) {
+        currentPage = page;
+        renderTable(filteredData.length > 0 ? filteredData : ticketsData, page);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function showConfirmModal(id, code) {
+        document.getElementById("confirmModalBody").innerHTML = `
+          <p>Voulez-vous vraiment valider le ticket <strong>${code}</strong> ?</p>
+          <p class="text-warning">Cette action est irréversible.</p>
+        `;
+
+        document.getElementById("confirmActionBtn").onclick = () => {
+          validateTicket(id);
+          confirmModal.hide();
+        };
+
+        confirmModal.show();
+      }
+
+      function showToast(type, message) {
+        const toastContainer = document.createElement("div");
+        toastContainer.innerHTML = `
+          <div class="toast align-items-center text-white bg-${type} border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+              <div class="toast-body">
+                ${message}
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+          </div>
+        `;
+
+        toastContainer.style.position = "fixed";
+        toastContainer.style.top = "20px";
+        toastContainer.style.right = "20px";
+        toastContainer.style.zIndex = "9999";
+
+        document.body.appendChild(toastContainer);
+
+        setTimeout(() => {
+          toastContainer.remove();
+        }, 3000);
+      }
+
+      function searchTickets() {
+        const keyword = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+        filteredData = ticketsData.filter(
+          (ticket) =>
+            ticket.code.toLowerCase().includes(keyword) ||
+            ticket._id.toLowerCase().includes(keyword) ||
+            (ticket.isUsed ? "utilisé" : "non utilisé").includes(keyword)
+        );
+
+        currentPage = 1;
+        renderTable(filteredData, currentPage);
+      }
+
+      function clearSearch() {
+        document.getElementById("searchInput").value = "";
+        filteredData = [];
+        currentPage = 1;
+        renderTable(ticketsData, currentPage);
+      }
+
+      function refreshData() {
+        loadTickets();
+        showToast("info", "Données actualisées");
+      }
+
+      function printTickets() {
+        window.print();
+      }
+
+      async function exportToCSV() {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch("/admin/export-csv", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) throw new Error("Erreur lors de l'export");
+
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "tickets.csv";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } catch (error) {
+          console.error(error);
+          showToast("danger", error.message);
+        }
+      }
+
+      function logout() {
+        localStorage.removeItem("token");
+        window.location.href = "/admin-auth.html";
+      }
+
+      // Initialisation
+      document
+        .getElementById("searchInput")
+        .addEventListener("input", searchTickets);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") clearSearch();
+      });
+
+      let currentEditingTicketId = null;
+      const editModal = new bootstrap.Modal(
+        document.getElementById("editModal")
+      );
+
+      // Filtrer par statut
+      function filterByStatus() {
+        const status = document.getElementById("statusFilter").value;
+        loadTickets(status);
+      }
+
+      // Charger les tickets avec filtre
+      async function loadTickets(status = "all") {
+        try {
+          const url =
+            status === "all"
+              ? "/admin/tickets"
+              : `/admin/tickets?status=${status}`;
+
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (response.status === 401 || response.status === 403) {
+            logout();
+            return;
+          }
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erreur de chargement");
+          }
+
+          ticketsData = result.data || [];
+          renderTable(ticketsData, currentPage);
+        } catch (error) {
+          showToast("danger", "Erreur de chargement");
+        }
+      }
+
+      // Afficher le modal d'édition
+      async function showEditModal(ticketId) {
+        try {
+          const response = await fetch(`/admin/tickets/${ticketId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (response.status === 401 || response.status === 403) {
+            logout();
+            return;
+          }
+
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erreur de chargement");
+          }
+
+          const ticket = result.data;
+
+          document.getElementById("editIsUsed").checked = ticket.isUsed;
+          document.getElementById("editIsAssigned").checked = ticket.isAssigned;
+          document.getElementById("editAssignedTo").value =
+            ticket.assignedTo || "";
+          currentEditingTicketId = ticketId;
+
+          // Gestion de l'état du champ assigné à
+          document.getElementById("editAssignedTo").disabled =
+            !ticket.isAssigned;
+          document
+            .getElementById("editIsAssigned")
+            .addEventListener("change", function () {
+              document.getElementById("editAssignedTo").disabled =
+                !this.checked;
+              if (!this.checked) {
+                document.getElementById("editAssignedTo").value = "";
+              }
+            });
+
+          editModal.show();
+        } catch (error) {
+          showToast("danger", "Erreur de chargement");
+        }
+      }
+
+      // Sauvegarder les modifications
+      async function saveTicketChanges() {
+        try {
+          const isUsed = document.getElementById("editIsUsed").checked;
+          const isAssigned = document.getElementById("editIsAssigned").checked;
+          const assignedTo = document
+            .getElementById("editAssignedTo")
+            .value.trim();
+
+          // Validation
+          if (isAssigned && !assignedTo) {
+            showToast("danger", "Le nom est requis pour assigner un ticket");
+            return;
+          }
+
+          const response = await fetch(
+            `/admin/tickets/${currentEditingTicketId}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                isUsed,
+                isAssigned: isAssigned && !!assignedTo, // Force false si assignedTo est vide
+                assignedTo: isAssigned ? assignedTo : null,
+              }),
+            }
+          );
+
+          if (!response.ok) throw new Error("Erreur de sauvegarde");
+
+          const updatedTicket = await response.json();
+          showToast("success", "Ticket mis à jour");
+          editModal.hide();
+          loadTickets(document.getElementById("statusFilter").value);
+        } catch (error) {
+          showToast("danger", error.message);
+        }
+      }
+
+      // Modifier la fonction renderTable pour afficher usedAt
+      function formatDate(dateString) {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+      }
+
+      // Générer des tickets
+      async function generateTickets() {
+        if (confirm("Voulez-vous vraiment générer 200 nouveaux tickets ?")) {
+          try {
+            const response = await fetch("/generate-tickets", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (response.ok) {
+              const result = await response.text();
+              //alert("Succès : " + result);
+              loadTickets();
+              showToast("info", result);
+            } else {
+              const errorText = await response.text();
+              alert("Erreur : " + errorText);
+            }
+          } catch (error) {
+            console.error("Erreur lors de la requête:", error);
+            alert(
+              "Une erreur s'est produite lors de la génération des tickets."
+            );
+          }
+        }
+      }
+
+      // Générer tickets à partir des réservations pending
+      async function generateFromReservations() {
+        if (!confirm('Générer des tickets pour toutes les réservations PENDING ?')) return;
+        try {
+          const response = await fetch('/api/admin/generate-tickets-from-reservations', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Erreur lors de la génération');
+          const data = await response.json();
+          showToast('info', `Tickets générés: ${data.count}`);
+          loadTickets();
+        } catch (err) { showToast('danger', err.message || 'Erreur'); }
+      }
+
+      // Envoyer tickets depuis réservations (TICKET_CREATED)
+      async function sendTicketsFromReservations() {
+        if (!confirm('Envoyer tous les tickets pour réservations TICKET_CREATED ?')) return;
+        try {
+          const response = await fetch('/api/admin/send-tickets-from-reservations', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Erreur lors de l envoi');
+          const data = await response.json();
+          showToast('success', `Mails envoyés: ${data.sent}`);
+        } catch (err) { showToast('danger', err.message || 'Erreur'); }
+      }
+
+      // Supprimer tous les tickets
+      async function deleteAllTickets() {
+        if (
+          confirm(
+            "Êtes-vous sûr de vouloir supprimer tous les tickets ? Cette action est irréversible !"
+          )
+        ) {
+          try {
+            const response = await fetch("/delete-all-tickets", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (response.ok) {
+              const result = await response.text();
+              alert("Succès : " + result);
+              window.location.reload();
+            } else {
+              const errorText = await response.text();
+              alert("Erreur : " + errorText);
+            }
+          } catch (error) {
+            console.error("Erreur lors de la suppression :", error);
+            alert(
+              "Une erreur est survenue lors de la suppression des tickets."
+            );
+          }
+        }
+      }
+
+      loadTickets();
+    </script>
+  </body>
+</html>

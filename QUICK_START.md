@@ -39,10 +39,14 @@ Server runs at `http://localhost:3000`
 
 ## 📱 Access Points
 
-- **Admin Panel**: http://localhost:3000/admin.html
-- **Manager Interface**: http://localhost:3000/manager.html
-- **Login Page**: http://localhost:3000/admin-auth.html
-- **Health Check**: http://localhost:3000/health
+- **Admin Panel**: <http://localhost:3000/admin.html>
+- **Login Page**: <http://localhost:3000/admin-auth.html>
+- **Ticket Validation**: <http://localhost:3000/>
+- **Health Check**: <http://localhost:3000/health>
+
+> **Note**: Le système utilise désormais un panel administratif unifié pour tous les rôles (admin, manager, normal).
+> Les managers peuvent assigner des tickets VIP et NORMAL à leur propre nom depuis le panel admin.
+> Limites: 90 tickets VIP et 410 tickets NORMAL.
 
 ---
 

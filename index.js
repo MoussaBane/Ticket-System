@@ -196,6 +196,7 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
     }
 
     const tickets = await Ticket.find(query)
+      .populate("assignedBy", "nom prenom email")
       .sort({ createdAt: -1 })
       .limit(1000); // Limit to prevent huge responses
 
@@ -231,6 +232,65 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
     );
   }
 });
+
+/**
+ * GET /admin/tickets/stats/summary
+ * Get ticket statistics including VIP/NORMAL breakdown
+ */
+app.get(
+  "/admin/tickets/stats/summary",
+  verifyToken,
+  roleAuth("admin", "manager"),
+  async (req, res) => {
+    try {
+      const total = await Ticket.countDocuments();
+      const assigned = await Ticket.countDocuments({ isAssigned: true });
+      const used = await Ticket.countDocuments({ isUsed: true });
+      const vipTotal = await Ticket.countDocuments({ ticketType: "VIP" });
+      const normalTotal = await Ticket.countDocuments({ ticketType: "NORMAL" });
+      const vipUsed = await Ticket.countDocuments({
+        ticketType: "VIP",
+        isUsed: true,
+      });
+      const normalUsed = await Ticket.countDocuments({
+        ticketType: "NORMAL",
+        isUsed: true,
+      });
+
+      return sendSuccess(
+        res,
+        {
+          total,
+          assigned,
+          available: total - assigned,
+          used,
+          vip: {
+            total: vipTotal,
+            limit: 90,
+            remaining: 90 - vipTotal,
+            used: vipUsed,
+          },
+          normal: {
+            total: normalTotal,
+            limit: 410,
+            remaining: 410 - normalTotal,
+            used: normalUsed,
+          },
+        },
+        200,
+        "Statistics retrieved successfully"
+      );
+    } catch (err) {
+      console.error("Error fetching stats:", err);
+      return sendError(
+        res,
+        "Server error while fetching statistics",
+        500,
+        err.message
+      );
+    }
+  }
+);
 
 /**
  * GET /admin/tickets/:id
@@ -322,46 +382,63 @@ app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
 
 /**
  * PUT /admin/tickets/:id/assign
- * Assign a ticket to a person
+ * Assign a ticket to the logged-in user with type (VIP/NORMAL)
  */
-app.put("/admin/tickets/:id/assign", adminAuth, async (req, res) => {
-  try {
-    const { assignedTo } = req.body;
+app.put(
+  "/admin/tickets/:id/assign",
+  verifyToken,
+  roleAuth("admin", "manager"),
+  async (req, res) => {
+    try {
+      const { ticketType } = req.body;
 
-    if (!assignedTo || assignedTo.trim() === "") {
-      return sendValidationError(res, "Assigned person name is required");
+      if (!ticketType || !["VIP", "NORMAL"].includes(ticketType)) {
+        return sendValidationError(
+          res,
+          "Ticket type is required (VIP or NORMAL)"
+        );
+      }
+
+      // Get user info from token
+      const userId = req.user.id;
+      const userName =
+        req.user.nom && req.user.prenom
+          ? `${req.user.prenom} ${req.user.nom}`
+          : req.user.email;
+
+      const ticket = await Ticket.findByIdAndUpdate(
+        req.params.id,
+        {
+          isAssigned: true,
+          assignedTo: userName,
+          assignedBy: userId,
+          assignedAt: new Date(),
+          ticketType: ticketType,
+        },
+        { new: true }
+      );
+
+      if (!ticket) {
+        return sendError(res, "Ticket not found", 404);
+      }
+
+      return sendSuccess(
+        res,
+        ticket.toObject(),
+        200,
+        `Ticket ${ticketType} assigned successfully`
+      );
+    } catch (err) {
+      console.error("Error assigning ticket:", err);
+      return sendError(
+        res,
+        "Server error while assigning ticket",
+        500,
+        err.message
+      );
     }
-
-    const ticket = await Ticket.findByIdAndUpdate(
-      req.params.id,
-      {
-        isAssigned: true,
-        assignedTo: assignedTo.trim(),
-        assignedAt: new Date(),
-      },
-      { new: true }
-    );
-
-    if (!ticket) {
-      return sendError(res, "Ticket not found", 404);
-    }
-
-    return sendSuccess(
-      res,
-      ticket.toObject(),
-      200,
-      "Ticket assigned successfully"
-    );
-  } catch (err) {
-    console.error("Error assigning ticket:", err);
-    return sendError(
-      res,
-      "Server error while assigning ticket",
-      500,
-      err.message
-    );
   }
-});
+);
 
 /**
  * PUT /admin/tickets/:id/validate
@@ -398,6 +475,104 @@ app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
     );
   }
 });
+
+/**
+ * POST /admin/tickets/assign-bulk
+ * Assign multiple tickets at once to the logged-in user
+ */
+app.post(
+  "/admin/tickets/assign-bulk",
+  verifyToken,
+  roleAuth("admin", "manager"),
+  async (req, res) => {
+    try {
+      const { count, ticketType } = req.body;
+
+      if (!count || count < 1 || count > 100) {
+        return sendValidationError(res, "Count must be between 1 and 100");
+      }
+
+      if (!ticketType || !["VIP", "NORMAL"].includes(ticketType)) {
+        return sendValidationError(
+          res,
+          "Ticket type is required (VIP or NORMAL)"
+        );
+      }
+
+      // Check limits
+      const vipCount = await Ticket.countDocuments({ ticketType: "VIP" });
+      const normalCount = await Ticket.countDocuments({ ticketType: "NORMAL" });
+
+      if (ticketType === "VIP" && vipCount + count > 90) {
+        return sendError(
+          res,
+          `Cannot assign ${count} VIP tickets. Limit: 90 (${vipCount} already assigned)`,
+          400
+        );
+      }
+
+      if (ticketType === "NORMAL" && normalCount + count > 410) {
+        return sendError(
+          res,
+          `Cannot assign ${count} NORMAL tickets. Limit: 410 (${normalCount} already assigned)`,
+          400
+        );
+      }
+
+      // Get user info from token
+      const userId = req.user.id;
+      const userName =
+        req.user.nom && req.user.prenom
+          ? `${req.user.prenom} ${req.user.nom}`
+          : req.user.email;
+
+      // Find unassigned tickets
+      const unassignedTickets = await Ticket.find({ isAssigned: false }).limit(
+        count
+      );
+
+      if (unassignedTickets.length < count) {
+        return sendError(
+          res,
+          `Only ${unassignedTickets.length} unassigned tickets available`,
+          400
+        );
+      }
+
+      // Update tickets
+      const ticketIds = unassignedTickets.map((t) => t._id);
+      const result = await Ticket.updateMany(
+        { _id: { $in: ticketIds } },
+        {
+          isAssigned: true,
+          assignedTo: userName,
+          assignedBy: userId,
+          assignedAt: new Date(),
+          ticketType: ticketType,
+        }
+      );
+
+      return sendSuccess(
+        res,
+        {
+          assigned: result.modifiedCount,
+          ticketType,
+          assignedTo: userName,
+        },
+        200,
+        `${result.modifiedCount} tickets ${ticketType} assigned successfully`
+      );
+    } catch (err) {
+      console.error("Error assigning tickets:", err);
+      return sendError(
+        res,
+        "Server error while assigning tickets",
+        500,
+        err.message
+      );
+    }
+  }
+);
 
 /**
  * DELETE /tickets/:id
@@ -492,13 +667,36 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
  */
 app.get("/admin/export-csv", adminAuth, async (req, res) => {
   try {
-    const tickets = await Ticket.find();
+    const tickets = await Ticket.find().populate(
+      "assignedBy",
+      "nom prenom email"
+    );
+
+    // Transform data for CSV
+    const ticketsForCSV = tickets.map((ticket) => ({
+      _id: ticket._id,
+      code: ticket.code,
+      ticketType: ticket.ticketType || "NORMAL",
+      isAssigned: ticket.isAssigned,
+      assignedTo: ticket.assignedTo || "",
+      assignedBy: ticket.assignedBy
+        ? ticket.assignedBy.prenom
+          ? `${ticket.assignedBy.prenom} ${ticket.assignedBy.nom}`
+          : ticket.assignedBy.email
+        : "",
+      assignedAt: ticket.assignedAt || "",
+      isUsed: ticket.isUsed,
+      usedAt: ticket.usedAt || "",
+      createdAt: ticket.createdAt,
+    }));
 
     const fields = [
       "_id",
       "code",
+      "ticketType",
       "isAssigned",
       "assignedTo",
+      "assignedBy",
       "assignedAt",
       "isUsed",
       "usedAt",
@@ -506,7 +704,7 @@ app.get("/admin/export-csv", adminAuth, async (req, res) => {
     ];
 
     const parser = new Parser({ fields });
-    const csv = parser.parse(tickets);
+    const csv = parser.parse(ticketsForCSV);
 
     res.header("Content-Type", "text/csv; charset=utf-8");
     res.attachment("tickets.csv");
