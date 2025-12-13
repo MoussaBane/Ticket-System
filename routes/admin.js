@@ -31,9 +31,9 @@ router.get(
       }
 
       const reservations = await Reservation.find(query)
-        .populate("createdBy", "nom prenom email")
-        .populate("ticketId", "code pdfUrl")
-        .sort({ createdAt: -1 });
+        .populate('createdBy', 'nom prenom email')
+        .populate('ticketId', 'code pdfUrl')
+        .sort({ createdAt: 1 });
 
       return sendSuccess(res, reservations, 200, "Reservations retrieved");
     } catch (err) {

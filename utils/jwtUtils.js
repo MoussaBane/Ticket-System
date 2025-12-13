@@ -12,7 +12,7 @@ const { SignJWT, jwtVerify } = require('jose');
  */
 async function generateToken(user) {
   const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-  const expiresIn = process.env.JWT_EXPIRES_IN || '3h';
+  const expiresIn = process.env.JWT_EXPIRES_IN || '2h';
 
   if (!secret || process.env.JWT_SECRET.length === 0) {
     throw new Error('JWT_SECRET is not configured');

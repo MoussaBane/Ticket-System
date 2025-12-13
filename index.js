@@ -213,8 +213,8 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
     }
 
     const tickets = await Ticket.find(query)
-      .populate("assignedBy", "nom prenom email")
-      .sort({ createdAt: -1 })
+      .populate('assignedBy', 'nom prenom email')
+      .sort({ ticketNo: 1, createdAt: 1 })
       .limit(1000); // Limit to prevent huge responses
 
     // Generate QR codes for each ticket
