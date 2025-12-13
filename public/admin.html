@@ -348,7 +348,6 @@
               <th>Code</th>
               <th>Type</th>
               <th>Statut</th>
-              <th>Assigné à</th>
               <th>Assigné par</th>
               <th>QR Code</th>
               <th>Date</th>
@@ -356,7 +355,7 @@
             </tr>
           </thead>
           <tbody id="ticketList">
-            <tr><td colspan="9" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+            <tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -370,6 +369,35 @@
 
   <!-- Toast Container -->
   <div class="toast-container"></div>
+
+  <!-- Progress Modal -->
+  <div class="modal fade" id="progressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-hourglass-split text-warning"></i>
+            Génération de Tickets en Cours
+          </h5>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-2">
+              <span id="progressLabel">Démarrage...</span>
+              <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress" style="height: 25px;">
+              <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div id="progressDetails" class="text-muted small">
+            <div id="ticketCount">Tickets générés: 0</div>
+            <div id="batchInfo">Batch: -</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Assign Modal -->
   <div class="modal fade" id="assignModal" tabindex="-1">
@@ -511,7 +539,7 @@
       const pageData = filteredData.slice(start, end);
 
       if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4"><i class="bi bi-inbox"></i> Aucun ticket trouvé</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><i class="bi bi-inbox"></i> Aucun ticket trouvé</td></tr>';
         return;
       }
 
@@ -522,7 +550,7 @@
         
         return `
           <tr>
-            <td>${start + idx + 1}</td>
+            <td>${ticket.ticketNo || 'N/A'}</td>
             <td><code>${ticket.code}</code></td>
             <td>${ticket.ticketType === 'VIP' 
               ? '<span class="vip-badge"><i class="bi bi-star-fill"></i> VIP</span>' 
@@ -534,7 +562,6 @@
                 ? '<span class="badge bg-info">Assigné</span>' 
                 : '<span class="badge bg-secondary">Disponible</span>'}
             </td>
-            <td>${ticket.assignedTo || 'N/A'}</td>
             <td><small>${assignedByName}</small></td>
             <td>${ticket.qrUrl ? `<img src="${ticket.qrUrl}" width="50" class="img-thumbnail">` : 'N/A'}</td>
             <td><small>${ticket.assignedAt ? new Date(ticket.assignedAt).toLocaleDateString() : 'N/A'}</small></td>
@@ -542,6 +569,7 @@
               <div class="btn-group btn-group-sm">
                 ${!ticket.isAssigned ? `<button class="btn btn-sm btn-primary" onclick="showAssignModal('${ticket._id}')"><i class="bi bi-person-plus"></i></button>` : ''}
                 ${ticket.isAssigned && !ticket.isUsed ? `<button class="btn btn-sm btn-success" onclick="validateTicket('${ticket._id}')"><i class="bi bi-check-lg"></i></button>` : ''}
+                ${ticket.isAssigned ? `<button class="btn btn-sm ${ticket.isDownloaded ? 'btn-secondary' : 'btn-info'}" onclick="downloadTicketImage('${ticket.code}', '${ticket.ticketType}')" ${ticket.isDownloaded ? 'disabled' : ''}><i class="bi bi-download"></i>${ticket.isDownloaded ? ' Téléchargé' : ''}</button>` : ''}
               </div>
             </td>
           </tr>
@@ -725,46 +753,114 @@
 
     // Generate tickets (admin only)
     async function generateTickets() {
-      const count = prompt('Nombre de tickets à générer (max 500):', '200');
-      if (!count) return;
+      const countStr = prompt('Nombre de tickets à générer (1-1000):', '200');
+      if (!countStr) return;
+
+      const count = parseInt(countStr);
+      if (isNaN(count) || count < 1 || count > 1000) {
+        showToast('warning', 'Veuillez entrer un nombre entre 1 et 1000');
+        return;
+      }
+
+      // Show progress modal
+      const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+      progressModal.show();
+
+      // Reset progress
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressPercent').textContent = '0%';
+      document.getElementById('progressLabel').textContent = 'Initialisation...';
+      document.getElementById('ticketCount').textContent = 'Tickets générés: 0';
+      document.getElementById('batchInfo').textContent = 'Batch: -';
 
       try {
-        const response = await fetch('/generate-tickets', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        // Use SSE for real-time progress
+        // Note: Token in URL because EventSource cannot send custom headers
+        const token = localStorage.getItem('token');
+        const eventSource = new EventSource(`/generate-tickets-stream?count=${count}&token=${token}`);
 
-        if (!response.ok) throw new Error('Erreur de génération');
-        
-        showToast('success', `${count} tickets générés avec succès`);
-        await loadStats();
-        await loadTickets();
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'start') {
+              document.getElementById('progressLabel').textContent = `Génération de ${data.count} tickets...`;
+            } else if (data.type === 'progress') {
+              const percent = data.progress;
+              document.getElementById('progressBar').style.width = percent + '%';
+              document.getElementById('progressPercent').textContent = percent + '%';
+              document.getElementById('ticketCount').textContent = `Tickets générés: ${data.generated}/${data.total}`;
+              document.getElementById('batchInfo').textContent = `Batch: ${data.batch}`;
+              document.getElementById('progressLabel').textContent = `Génération en cours... (${data.generated}/${data.total})`;
+            } else if (data.type === 'complete') {
+              document.getElementById('progressBar').style.width = '100%';
+              document.getElementById('progressPercent').textContent = '100%';
+              document.getElementById('progressLabel').textContent = '✓ Généré avec succès!';
+              document.getElementById('ticketCount').textContent = `Total générés: ${data.generated}`;
+
+              // Close modal after 2 seconds
+              setTimeout(() => {
+                progressModal.hide();
+                showToast('success', `✓ ${data.generated} tickets générés avec succès`);
+                loadStats();
+                loadTickets();
+              }, 1500);
+
+              eventSource.close();
+            } else if (data.type === 'error') {
+              throw new Error(data.message);
+            }
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error:', error);
+          eventSource.close();
+          progressModal.hide();
+          showToast('danger', 'Erreur de connexion lors de la génération');
+        };
       } catch (error) {
-        showToast('danger', error.message);
+        progressModal.hide();
+        showToast('danger', `Erreur: ${error.message}`);
       }
     }
 
     // Delete all tickets (admin only)
     async function deleteAllTickets() {
       if (!confirm('ATTENTION: Supprimer TOUS les tickets ? Cette action est irréversible !')) return;
-      if (!confirm('Êtes-vous vraiment sûr ? Tous les tickets seront perdus.')) return;
+      if (!confirm('Êtes-vous vraiment sûr ? Tous les tickets seront perdus ET le compteur sera réinitialisé.')) return;
 
       try {
+        // Show loading state
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Suppression...';
+
         const response = await fetch('/delete-all-tickets', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` }
         });
 
         if (!response.ok) throw new Error('Erreur de suppression');
+
+        const result = await response.json();
+        showToast('success', `✓ ${result.data.deletedCount} tickets supprimés et compteur réinitialisé`);
         
-        showToast('success', 'Tous les tickets ont été supprimés');
+        // Restore button
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+
+        // Refresh data
         await loadStats();
         await loadTickets();
       } catch (error) {
         showToast('danger', error.message);
+        const btn = event.target;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash3"></i> Tout Supprimer';
       }
     }
 
@@ -817,6 +913,37 @@
     function logout() {
       localStorage.removeItem('token');
       window.location.href = '/admin-auth.html';
+    }
+
+    // Download ticket image
+    async function downloadTicketImage(code, ticketType) {
+      try {
+        const template = ticketType === 'VIP' ? 'vip' : 'normal';
+        const response = await fetch(`/api/users/my-tickets/download/${code}?template=${template}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Erreur lors du téléchargement');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ticket-${code}-${template}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast('success', 'Ticket téléchargé avec succès');
+        // Refresh tickets to show updated status
+        setTimeout(() => loadTickets(), 500);
+      } catch (error) {
+        console.error('Error downloading ticket image:', error);
+        showToast('danger', error.message);
+      }
     }
 
     // Initialize on load

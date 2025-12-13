@@ -10,13 +10,16 @@ const cors = require("cors");
 const path = require("path");
 const { Parser } = require("json2csv");
 const QRCode = require("qrcode");
+const { jwtVerify } = require("jose");
 
 // Models and Routes
 const Ticket = require("./models/Ticket");
+const Counter = require("./models/Counter");
 const adminAuthRoutes = require("./routes/auth");
 const managerRoutes = require("./routes/manager");
 const adminRoutes = require("./routes/admin");
 const usersRoutes = require("./routes/users");
+const { getNextSequence } = require("./services/counterService");
 
 // Middlewares
 const verifyToken = require("./middlewares/verifyToken");
@@ -29,6 +32,20 @@ const {
   sendError,
   sendValidationError,
 } = require("./utils/responseUtils");
+
+// Helper to verify JWT token
+const verifyJWT = async (token) => {
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    if (!secret || process.env.JWT_SECRET.length === 0) {
+      throw new Error("JWT_SECRET not configured");
+    }
+    const { payload } = await jwtVerify(token, secret);
+    return payload;
+  } catch (err) {
+    throw new Error("Invalid or expired token");
+  }
+};
 
 // Initialize Express app
 const app = express();
@@ -606,11 +623,14 @@ app.post("/delete-all-tickets", adminAuth, async (req, res) => {
   try {
     const result = await Ticket.deleteMany({});
 
+    // Reset the counter to 0 when all tickets are deleted
+    await Counter.findByIdAndUpdate("ticketNo", { seq: 0 }, { upsert: true });
+
     return sendSuccess(
       res,
       { deletedCount: result.deletedCount },
       200,
-      `${result.deletedCount} tickets deleted`
+      `${result.deletedCount} tickets deleted and counter reset`
     );
   } catch (err) {
     console.error("Error deleting all tickets:", err);
@@ -622,33 +642,198 @@ app.post("/delete-all-tickets", adminAuth, async (req, res) => {
     );
   }
 });
+/**
+ * GET /generate-tickets-stream
+ * Stream ticket generation progress with Server-Sent Events (SSE)
+ * Query: ?count=200&token=<JWT>
+ * Note: Token in query because EventSource doesn't support custom headers
+ */
+app.get("/generate-tickets-stream", async (req, res) => {
+  try {
+    // Verify token from query parameter (EventSource limitation)
+    const token = req.query.token;
+    if (!token) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          message: "No token provided",
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    // Verify JWT
+    let decoded;
+    try {
+      decoded = await verifyJWT(token);
+    } catch (err) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          message: "Invalid token",
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    // Check admin auth
+    if (decoded.role !== "admin") {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(
+        `data: ${JSON.stringify({
+          type: "error",
+          message: "Admin access required",
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    let { count = 200 } = req.query;
+    count = Math.min(Math.max(parseInt(count), 1), 1000);
+
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    console.log(`[SSE] Starting generation of ${count} tickets...`);
+
+    const BATCH_SIZE = 100;
+    let generatedCount = 0;
+
+    // Send initial event
+    res.write(
+      `data: ${JSON.stringify({
+        type: "start",
+        count,
+        timestamp: new Date().toISOString(),
+      })}\n\n`
+    );
+
+    // Generate in batches
+    for (let batch = 0; batch < Math.ceil(count / BATCH_SIZE); batch++) {
+      const batchCount = Math.min(BATCH_SIZE, count - batch * BATCH_SIZE);
+      const ticketsToInsert = [];
+
+      // Prepare batch of tickets
+      for (let i = 0; i < batchCount; i++) {
+        const ticketNo = await getNextSequence("ticketNo");
+        ticketsToInsert.push({
+          ticketNo,
+          code: Math.floor(100000 + Math.random() * 900000).toString(),
+        });
+      }
+
+      // Insert batch
+      const batchResult = await Ticket.insertMany(ticketsToInsert);
+      generatedCount += batchResult.length;
+
+      // Send progress event
+      const progress = Math.round((generatedCount / count) * 100);
+      const message = {
+        type: "progress",
+        generated: generatedCount,
+        total: count,
+        progress,
+        batch: batch + 1,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.write(`data: ${JSON.stringify(message)}\n\n`);
+      console.log(
+        `[SSE] Batch ${batch + 1}: ${generatedCount}/${count} (${progress}%)`
+      );
+
+      // Small delay to allow client to receive events
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    // Send completion event
+    res.write(
+      `data: ${JSON.stringify({
+        type: "complete",
+        generated: generatedCount,
+        total: count,
+        progress: 100,
+        timestamp: new Date().toISOString(),
+      })}\n\n`
+    );
+
+    console.log(`[SSE] ✓ Successfully generated ${generatedCount} tickets`);
+    res.end();
+  } catch (err) {
+    console.error("[SSE] Error generating tickets:", err);
+    res.write(
+      `data: ${JSON.stringify({
+        type: "error",
+        message: err.message,
+        timestamp: new Date().toISOString(),
+      })}\n\n`
+    );
+    res.end();
+  }
+});
 
 /**
  * POST /generate-tickets
- * Generate bulk tickets (200 by default)
+ * Generate bulk tickets with optimized batch processing
+ * Request body: { count: number }
  */
 app.post("/generate-tickets", adminAuth, async (req, res) => {
   try {
-    const { count = 200 } = req.body;
+    let { count = 200 } = req.body;
+    count = Math.min(Math.max(parseInt(count), 1), 1000); // Clamp between 1 and 1000
 
-    if (count < 1 || count > 1000) {
-      return sendValidationError(
-        res,
-        "Ticket count must be between 1 and 1000"
+    console.log(`Starting generation of ${count} tickets...`);
+
+    // Batch size for optimal performance
+    const BATCH_SIZE = 100;
+    const result = [];
+    let generatedCount = 0;
+
+    // Generate in batches
+    for (let batch = 0; batch < Math.ceil(count / BATCH_SIZE); batch++) {
+      const batchCount = Math.min(BATCH_SIZE, count - batch * BATCH_SIZE);
+      const ticketsToInsert = [];
+
+      // Prepare batch of tickets
+      for (let i = 0; i < batchCount; i++) {
+        const ticketNo = await getNextSequence("ticketNo");
+        ticketsToInsert.push({
+          ticketNo,
+          code: Math.floor(100000 + Math.random() * 900000).toString(),
+        });
+      }
+
+      // Insert batch
+      const batchResult = await Ticket.insertMany(ticketsToInsert);
+      result.push(...batchResult);
+      generatedCount += batchResult.length;
+
+      console.log(
+        `Batch ${batch + 1}: Generated ${
+          batchResult.length
+        } tickets (${generatedCount}/${count})`
       );
     }
 
-    const tickets = Array.from({ length: count }, () => ({
-      code: Math.floor(100000 + Math.random() * 900000).toString(),
-    }));
-
-    const result = await Ticket.insertMany(tickets);
+    console.log(`✓ Successfully generated ${generatedCount} tickets`);
 
     return sendSuccess(
       res,
-      { count: result.length },
+      {
+        count: generatedCount,
+        totalGenerated: generatedCount,
+        timestamp: new Date().toISOString(),
+      },
       201,
-      `Generated ${result.length} tickets successfully`
+      `Generated ${generatedCount} tickets successfully`
     );
   } catch (err) {
     console.error("Error generating tickets:", err);

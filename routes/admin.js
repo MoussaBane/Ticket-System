@@ -6,6 +6,7 @@ const Reservation = require('../models/Reservation');
 const Ticket = require('../models/Ticket');
 const { generateTicketPdf } = require('../services/ticketPdfService');
 const { sendTicketMail } = require('../services/mailService');
+const { getNextSequence } = require("../services/counterService");
 const { sendSuccess, sendError } = require("../utils/responseUtils");
 
 /**
@@ -74,8 +75,12 @@ router.post(
 
       for (const reservation of pending) {
         try {
+          // Get next ticket number
+          const ticketNo = await getNextSequence("ticketNo");
+
           // Create new ticket
           const ticket = new Ticket({
+            ticketNo,
             code: Math.floor(100000 + Math.random() * 900000).toString(),
             isAssigned: true,
             assignedTo: reservation.holderName,

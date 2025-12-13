@@ -3,6 +3,10 @@ const router = express.Router();
 const verifyToken = require('../middlewares/verifyToken');
 const roleAuth = require('../middlewares/roleAuth');
 const User = require('../models/User');
+const Ticket = require("../models/Ticket");
+const { generateTicketImage } = require("../services/ticketImageService");
+const path = require("path");
+const fs = require("fs");
 const {
   sendSuccess,
   sendError,
@@ -27,6 +31,105 @@ router.get("/me", verifyToken, async (req, res) => {
     return sendError(
       res,
       "Server error while fetching profile",
+      500,
+      err.message
+    );
+  }
+});
+
+/**
+ * GET /api/users/my-tickets/download/:code
+ * Download an image of a ticket assigned to the current user.
+ * Query: template=vip|normal (defaults to ticketType)
+ */
+router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
+  try {
+    const { code } = req.params;
+    const templateQuery = (req.query.template || "").toUpperCase();
+    const userId = req.user.id;
+
+    const ticket = await Ticket.findOne({
+      code,
+      isAssigned: true,
+      assignedTo: { $exists: true },
+    }).populate("assignedBy", "email nom prenom");
+
+    if (!ticket) {
+      return sendError(res, "Ticket not found or not assigned", 404);
+    }
+
+    // Get current user info
+    const user = await User.findById(userId).select("nom prenom email");
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
+
+    // Log for debugging
+    console.log("Download attempt:", {
+      ticketCode: ticket.code,
+      userId: userId,
+      ticketAssignedBy: ticket.assignedBy?._id?.toString(),
+      ticketAssignedEmail: ticket.assignedEmail,
+      userEmail: user.email,
+      ticketAssignedTo: ticket.assignedTo,
+    });
+
+    // Authorization: allow if assignedBy is current user OR email matches OR name matches
+    const assignedByMatch =
+      ticket.assignedBy && ticket.assignedBy._id?.toString() === userId;
+    const emailMatch =
+      user.email &&
+      ticket.assignedEmail &&
+      user.email.toLowerCase() === ticket.assignedEmail.toLowerCase();
+    const nameMatch =
+      ticket.assignedTo &&
+      `${user.prenom || ""} ${user.nom || ""}`.toLowerCase() ===
+        ticket.assignedTo.toLowerCase();
+
+    if (!assignedByMatch && !emailMatch && !nameMatch) {
+      console.warn("Authorization failed for ticket download", {
+        assignedByMatch,
+        emailMatch,
+        nameMatch,
+      });
+      return sendError(
+        res,
+        "You are not authorized to download this ticket",
+        403
+      );
+    }
+
+    const templateType =
+      templateQuery === "VIP" || templateQuery === "NORMAL"
+        ? templateQuery
+        : ticket.ticketType;
+
+    const { filePath, publicUrl } = await generateTicketImage(
+      ticket,
+      templateType
+    );
+
+    // Mark ticket as downloaded
+    await Ticket.findByIdAndUpdate(ticket._id, {
+      isDownloaded: true,
+      downloadedAt: new Date(),
+    });
+
+    // Stream file for download
+    const fileName = path.basename(filePath);
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Type", "image/png");
+    const s = fs.createReadStream(filePath);
+    s.on("error", (e) => {
+      console.error("Error streaming ticket image:", e);
+      return sendError(res, "Error downloading ticket image", 500);
+    });
+    s.pipe(res);
+  } catch (err) {
+    console.error("Error generating ticket image:", err);
+    return sendError(
+      res,
+      "Server error while generating ticket image",
       500,
       err.message
     );
