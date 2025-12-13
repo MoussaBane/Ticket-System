@@ -29,19 +29,19 @@ const ticketSchema = new mongoose.Schema(
     assignedAt: Date,
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
     },
     ticketType: {
       type: String,
-      enum: ["VIP", "NORMAL"],
-      default: "NORMAL",
+      enum: ['VIP', 'NORMAL'],
+      default: ' ',
       index: true,
     },
 
     // Reference to reservation (for reservation-to-ticket workflow)
     reservationId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Reservation",
+      ref: 'Reservation',
     },
 
     // PDF and QR code data
@@ -72,7 +72,7 @@ const ticketSchema = new mongoose.Schema(
       index: true,
     },
   },
-  { collection: "tickets" }
+  { collection: 'tickets' }
 );
 
 // Compound index for efficient filtering
