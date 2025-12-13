@@ -21,7 +21,10 @@ async function generateTicketImage(ticket, templateType) {
   }
 
   const publicDir = path.join(__dirname, "..", "public");
-  const templateFile = path.join(publicDir, tpl === "VIP" ? "vip.png" : "normal.png");
+  const templateFile = path.join(
+    publicDir,
+    tpl === "VIP" ? "vip.png" : "normal.png"
+  );
   if (!fs.existsSync(templateFile)) {
     throw new Error(`Template image not found: ${templateFile}`);
   }
@@ -46,7 +49,7 @@ async function generateTicketImage(ticket, templateType) {
   const qrX = 1118;
   const qrY = 224;
   const qrW = 1370 - 1118; // 252
-  const qrH = 453 - 224;   // 229
+  const qrH = 453 - 224; // 229
   const qrSizeExact = Math.min(qrW, qrH); // 229
 
   const ticketNoY = 111;
@@ -100,14 +103,22 @@ async function generateTicketImage(ticket, templateType) {
   // We'll compute width of text and adjust X to center around numberCenter.x
   const ticketNumberText = ticket.ticketNo ? `${ticket.ticketNo}` : "";
   const numberTextWidth = Jimp.measureText(fontMediumBlack, ticketNumberText);
-  const numberTextHeight = Jimp.measureTextHeight(fontMediumBlack, ticketNumberText, numberTextWidth);
+  const numberTextHeight = Jimp.measureTextHeight(
+    fontMediumBlack,
+    ticketNumberText,
+    numberTextWidth
+  );
   const centeredX = Math.round(coords.numberCenter.x - numberTextWidth / 2);
   const adjustedY = Math.round(coords.numberCenter.y - numberTextHeight / 2);
   template.print(fontBoldWhite, centeredX, adjustedY, ticketNumberText);
 
   // Draw code label + value. The template may already have "CODE:" label; if not, we add it.
-  template.print(fontBoldWhite, coords.codeText.x, coords.codeText.y, " ");
-  template.print(fontBoldWhite, coords.codeText.x, coords.codeText.y, ticket.code);
+  template.print(
+    fontBoldWhite,
+    coords.codeText.x,
+    coords.codeText.y,
+    ticket.code
+  );
 
   // Draw sequential ticket number if available (top-left area)
   // Already rendered above as centered text in numberCenter
@@ -116,6 +127,12 @@ async function generateTicketImage(ticket, templateType) {
 
   const outName = `ticket-${ticket.code}-${tpl.toLowerCase()}.png`;
   const outPath = path.join(outDir, outName);
+
+  // Delete existing file to ensure fresh generation with latest positioning
+  if (fs.existsSync(outPath)) {
+    fs.unlinkSync(outPath);
+  }
+
   await template.quality(100).writeAsync(outPath);
 
   const publicUrl = `/tickets/images/${outName}`;

@@ -64,16 +64,6 @@ router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
       return sendError(res, "User not found", 404);
     }
 
-    // Log for debugging
-    console.log("Download attempt:", {
-      ticketCode: ticket.code,
-      userId: userId,
-      ticketAssignedBy: ticket.assignedBy?._id?.toString(),
-      ticketAssignedEmail: ticket.assignedEmail,
-      userEmail: user.email,
-      ticketAssignedTo: ticket.assignedTo,
-    });
-
     // Authorization: allow if assignedBy is current user OR email matches OR name matches
     const assignedByMatch =
       ticket.assignedBy && ticket.assignedBy._id?.toString() === userId;
@@ -87,11 +77,6 @@ router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
         ticket.assignedTo.toLowerCase();
 
     if (!assignedByMatch && !emailMatch && !nameMatch) {
-      console.warn("Authorization failed for ticket download", {
-        assignedByMatch,
-        emailMatch,
-        nameMatch,
-      });
       return sendError(
         res,
         "You are not authorized to download this ticket",
@@ -115,10 +100,16 @@ router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
       downloadedAt: new Date(),
     });
 
-    // Stream file for download
+    // Stream file for download (disable caching to avoid stale images)
     const fileName = path.basename(filePath);
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.setHeader("Content-Type", "image/png");
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     const s = fs.createReadStream(filePath);
     s.on("error", (e) => {
       console.error("Error streaming ticket image:", e);
