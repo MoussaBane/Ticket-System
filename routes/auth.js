@@ -53,6 +53,15 @@ router.post("/login", loginLimiter, async (req, res) => {
       return sendError(res, "Invalid email or password", 401);
     }
 
+    // Vérifier que l'utilisateur est admin ou manager
+    if (user.role !== "admin" && user.role !== "manager") {
+      return sendError(
+        res,
+        "Accès refusé. Ce panel est réservé aux administrateurs et managers uniquement.",
+        403
+      );
+    }
+
     // Generate JWT token
     const token = await generateToken(user);
 
@@ -102,7 +111,7 @@ router.post("/register", async (req, res) => {
       prenom: prenom.trim(),
       email: email.toLowerCase().trim(),
       password,
-      role: req.body.role || "normal", // Defaults to 'normal'
+      role: "normal", // Defaults to 'normal'
     });
 
     // Save user (triggers password hashing via pre-save hook)

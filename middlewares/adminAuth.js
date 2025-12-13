@@ -28,6 +28,14 @@ module.exports = async (req, res, next) => {
 
     const { payload: decoded } = await jwtVerify(token, secret);
 
+    // Vérification de l'expiration du jeton
+    if (decoded.exp * 1000 < Date.now()) {
+      return res.status(401).json({
+        success: false,
+        message: "Token has expired. Please log in again.",
+      });
+    }
+
     // Verify user is authenticated
     if (!decoded || !decoded.role) {
       return res.status(401).json({
