@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
-const Ticket = require('./models/Ticket');
+const Ticket = require("../models/Ticket");
 
 (async () => {
   try {
