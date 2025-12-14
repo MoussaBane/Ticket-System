@@ -152,7 +152,8 @@
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.status === 401 || res.status === 403) return window.location.href = '/admin-auth.html';
-        const users = await res.json();
+        const response = await res.json();
+        const users = response.data || [];
         const tbody = document.getElementById('usersTable');
         tbody.innerHTML = '';
         users.forEach(user => {
