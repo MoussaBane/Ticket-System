@@ -242,13 +242,37 @@
 
           // Effacer le champ après validation
           document.getElementById("codeInput").value = "";
+          
+          // Auto-effacer le résultat après 5 secondes
+          setTimeout(() => {
+            resultDiv.innerHTML = "";
+          }, 5000);
         } catch (error) {
           console.error("Erreur:", error);
           resultDiv.innerHTML = `
             <div class="alert alert-danger w-100">
                 ${error.message || "Erreur lors de la validation"}
             </div>`;
+          
+          // Auto-effacer les erreurs après 5 secondes
+          setTimeout(() => {
+            resultDiv.innerHTML = "";
+          }, 5000);
         }
+      }
+
+      // Normalise le texte scanné : si c'est une URL avec ?code=XXX, on extrait uniquement le code
+      function extractCodeFromScan(text) {
+        try {
+          const maybeUrl = new URL(text);
+          const codeParam = maybeUrl.searchParams.get("code");
+          if (codeParam) {
+            return codeParam;
+          }
+        } catch (e) {
+          // Pas une URL, on garde le texte brut
+        }
+        return text;
       }
 
       // Activer la validation avec la touche Entrée
@@ -267,8 +291,15 @@
       document
         .getElementById("qrModal")
         .addEventListener("shown.bs.modal", function () {
+          // Effacer le résultat précédent quand on ouvre le scanner
+          document.getElementById("result").innerHTML = "";
+          document.getElementById("codeInput").value = "";
+          
           html5QrCode = new Html5Qrcode("qrReader");
           const qrResult = document.getElementById("qrResult");
+          
+          // Effacer l'ancien message du scanner
+          qrResult.innerHTML = "";
 
           html5QrCode
             .start(
@@ -286,8 +317,9 @@
                             </div>
                         `;
 
-                  // Remplir le champ et valider automatiquement
-                  document.getElementById("codeInput").value = decodedText;
+                  // Remplir le champ avec le code extrait (URL ou code brut) et valider automatiquement
+                  const normalizedCode = extractCodeFromScan(decodedText);
+                  document.getElementById("codeInput").value = normalizedCode;
                   setTimeout(() => {
                     valider();
                     qrModal.hide();
@@ -321,6 +353,9 @@
 
       // Fonction pour ouvrir le scanner QR
       function openQRScanner() {
+        // Effacer les anciens résultats avant d'ouvrir
+        document.getElementById("result").innerHTML = "";
+        document.getElementById("codeInput").value = "";
         qrModal.show();
       }
     </script>

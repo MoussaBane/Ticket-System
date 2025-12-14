@@ -12,29 +12,23 @@ const Jimp = require("jimp");
  */
 async function generateTicketImage(ticket, templateType) {
   if (!ticket || !ticket.code) {
-    throw new Error("Ticket must have a 6-digit code");
+    throw new Error('Ticket must have a 6-digit code');
   }
 
-  const tpl = (templateType || ticket.ticketType || "NORMAL").toUpperCase();
-  if (!["VIP", "NORMAL"].includes(tpl)) {
-    throw new Error("templateType must be VIP or NORMAL");
+  const tpl = (templateType || ticket.ticketType || 'NORMAL').toUpperCase();
+  if (!['VIP', 'NORMAL'].includes(tpl)) {
+    throw new Error('templateType must be VIP or NORMAL');
   }
 
-  const publicDir = path.join(__dirname, "..", "public");
-  const templateFile = path.join(
-    publicDir,
-    tpl === "VIP" ? "vip.png" : "normal.png"
-  );
+  const publicDir = path.join(__dirname, '..', 'public');
+  const templateFile = path.join(publicDir, tpl === 'VIP' ? 'vip.png' : 'normal.png');
   if (!fs.existsSync(templateFile)) {
     throw new Error(`Template image not found: ${templateFile}`);
   }
 
   // Output directory
-  const outDir = path.join(publicDir, "tickets", "images");
+  const outDir = path.join(publicDir, 'tickets', 'images');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-
-  const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-  const validationUrl = `${baseUrl}/validate?code=${ticket.code}`;
 
   // Coordinates per template (tuned for better placement)
   // numberCenter: circular badge center for ticket code (6 digits)
@@ -83,8 +77,9 @@ async function generateTicketImage(ticket, templateType) {
   const template = await Jimp.read(templateFile);
 
   // Generate QR as buffer and load into Jimp
-  const qrDataUrl = await QRCode.toDataURL(validationUrl, { margin: 0 });
-  const qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
+  // Encode only the raw ticket code in the QR (no URL wrapper)
+  const qrDataUrl = await QRCode.toDataURL(ticket.code, { margin: 0 });
+  const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
   const qrImage = await Jimp.read(qrBuffer);
   qrImage.resize(coords.qrSize, coords.qrSize);
 
@@ -101,7 +96,7 @@ async function generateTicketImage(ticket, templateType) {
 
   // Center ticket number inside blue circle: draw centered text at approx point
   // We'll compute width of text and adjust X to center around numberCenter.x
-  const ticketNumberText = ticket.ticketNo ? `${ticket.ticketNo}` : "";
+  const ticketNumberText = ticket.ticketNo ? `${ticket.ticketNo}` : '';
   const numberTextWidth = Jimp.measureText(fontMediumBlack, ticketNumberText);
   const numberTextHeight = Jimp.measureTextHeight(
     fontMediumBlack,
@@ -113,12 +108,7 @@ async function generateTicketImage(ticket, templateType) {
   template.print(fontBoldWhite, centeredX, adjustedY, ticketNumberText);
 
   // Draw code label + value. The template may already have "CODE:" label; if not, we add it.
-  template.print(
-    fontBoldWhite,
-    coords.codeText.x,
-    coords.codeText.y,
-    ticket.code
-  );
+  template.print(fontBoldWhite, coords.codeText.x, coords.codeText.y, ticket.code);
 
   // Draw sequential ticket number if available (top-left area)
   // Already rendered above as centered text in numberCenter
