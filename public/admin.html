@@ -220,7 +220,7 @@
               <li><a class="dropdown-item text-light" href="/users.html"><i class="bi bi-people"></i> Utilisateurs</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><button class="dropdown-item text-success" onclick="generateTickets()"><i class="bi bi-ticket-perforated"></i> Générer Tickets</button></li>
-              <li><button class="dropdown-item text-danger" onclick="deleteAllTickets()"><i class="bi bi-trash3"></i> Tout Supprimer</button></li>
+              <li><button class="dropdown-item text-danger" onclick="deleteAllTickets(event)"><i class="bi bi-trash3"></i> Tout Supprimer</button></li>
             </ul>
           </div>
           <a class="btn btn-outline-info btn-sm" href="/"><i class="bi bi-check2-all"></i> Validation</a>
@@ -428,81 +428,58 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // ============================================================
+    // GLOBAL VARIABLES
+    // ============================================================
     const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/admin-auth.html';
-    }
+    if (!token) window.location.href = '/admin-auth.html';
 
     let ticketsData = [];
     let filteredData = [];
     let statsData = {};
     let currentPage = 1;
-    const itemsPerPage = 20;
     let currentUser = null;
+    const itemsPerPage = 20;
 
-    // Decode JWT to get user info
-    function parseJwt(token) {
+    // ============================================================
+    // UTILITY FUNCTIONS
+    // ============================================================
+    const parseJwt = (token) => {
       try {
         return JSON.parse(atob(token.split('.')[1]));
       } catch (e) {
         return null;
       }
-    }
+    };
 
-    // Check if token is expired
-    function isTokenExpired(token) {
+    const isTokenExpired = (token) => {
       const payload = parseJwt(token);
-      if (!payload || !payload.exp) return true;
-      return Date.now() >= payload.exp * 1000;
-    }
+      return !payload || !payload.exp || Date.now() >= payload.exp * 1000;
+    };
 
-    // Check token expiration every minute
+    const getUserDisplayName = (user) => {
+      return user?.prenom && user?.nom ? `${user.prenom} ${user.nom}` : user?.email || 'N/A';
+    };
+
+    // Token expiration check
     setInterval(() => {
       if (isTokenExpired(token)) {
         localStorage.removeItem('token');
         alert('Votre session a expiré. Veuillez vous reconnecter.');
         window.location.href = '/admin-auth.html';
       }
-    }, 60000); // Check every minute
+    }, 60000);
 
-    // Initial check on page load
     if (isTokenExpired(token)) {
       localStorage.removeItem('token');
       alert('Votre session a expiré. Veuillez vous reconnecter.');
       window.location.href = '/admin-auth.html';
     }
 
-    // Initialize
-    async function init() {
-      const userData = parseJwt(token);
-      if (userData) {
-        currentUser = userData;
-        
-        // Redirect "normal" users to pending page
-        if (userData.role === 'normal') {
-          window.location.href = '/pending.html';
-          return;
-        }
-        
-        document.getElementById('userName').textContent = userData.prenom || userData.email;
-        const roleElement = document.getElementById('userRole');
-        roleElement.textContent = userData.role.toUpperCase();
-        roleElement.className = `role-badge role-${userData.role}`;
-        document.getElementById('assignToUser').textContent = 
-          userData.prenom && userData.nom ? `${userData.prenom} ${userData.nom}` : userData.email;
-
-        // Hide admin controls for non-admins
-        if (userData.role !== 'admin') {
-          document.getElementById('adminControls').style.display = 'none';
-        }
-      }
-      
-      await loadStats();
-      await loadTickets();
-    }
-
-    // Load statistics
-    async function loadStats() {
+    // ============================================================
+    // DATA LOADING
+    // ============================================================
+    const loadStats = async () => {
       try {
         const response = await fetch('/admin/tickets/stats/summary', {
           headers: { Authorization: `Bearer ${token}` }
@@ -520,7 +497,6 @@
         document.getElementById('vipRemaining').textContent = statsData.vip.remaining;
         document.getElementById('normalRemaining').textContent = statsData.normal.remaining;
         
-        // Update progress bars
         const vipPercent = (statsData.vip.total / statsData.vip.limit) * 100;
         const normalPercent = (statsData.normal.total / statsData.normal.limit) * 100;
         document.getElementById('vipProgress').style.width = `${vipPercent}%`;
@@ -528,10 +504,9 @@
       } catch (error) {
         console.error('Error loading stats:', error);
       }
-    }
+    };
 
-    // Load tickets
-    async function loadTickets() {
+    const loadTickets = async () => {
       try {
         const response = await fetch('/admin/tickets', {
           headers: { Authorization: `Bearer ${token}` }
@@ -552,10 +527,12 @@
         showToast('danger', 'Erreur de chargement des tickets');
         console.error(error);
       }
-    }
+    };
 
-    // Render table
-    function renderTable() {
+    // ============================================================
+    // RENDERING
+    // ============================================================
+    const renderTable = () => {
       const tbody = document.getElementById('ticketList');
       const start = (currentPage - 1) * itemsPerPage;
       const end = start + itemsPerPage;
@@ -566,10 +543,8 @@
         return;
       }
 
-      tbody.innerHTML = pageData.map((ticket, idx) => {
-        const assignedByName = ticket.assignedBy 
-          ? (ticket.assignedBy.prenom ? `${ticket.assignedBy.prenom} ${ticket.assignedBy.nom}` : ticket.assignedBy.email)
-          : 'N/A';
+      tbody.innerHTML = pageData.map((ticket) => {
+        const assignedByName = getUserDisplayName(ticket.assignedBy);
         
         return `
           <tr>
@@ -600,10 +575,9 @@
       }).join('');
 
       renderPagination();
-    }
+    };
 
-    // Pagination
-    function renderPagination() {
+    const renderPagination = () => {
       const totalPages = Math.ceil(filteredData.length / itemsPerPage);
       const pagination = document.getElementById('pagination');
       
@@ -631,18 +605,20 @@
       </li>`;
 
       pagination.innerHTML = html;
-    }
+    };
 
-    function changePage(page) {
+    const changePage = (page) => {
       const totalPages = Math.ceil(filteredData.length / itemsPerPage);
       if (page < 1 || page > totalPages) return;
       currentPage = page;
       renderTable();
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    };
 
-    // Assign tickets in bulk
-    async function assignTickets(type) {
+    // ============================================================
+    // TICKET OPERATIONS
+    // ============================================================
+    const assignTickets = async (type) => {
       const countInput = type === 'VIP' ? 'vipCountInput' : 'normalCountInput';
       const count = parseInt(document.getElementById(countInput).value);
 
@@ -670,21 +646,18 @@
         }
 
         showToast('success', result.message);
-        await loadStats();
-        await loadTickets();
+        await Promise.all([loadStats(), loadTickets()]);
       } catch (error) {
         showToast('danger', error.message);
       }
-    }
+    };
 
-    // Show assign modal for single ticket
-    function showAssignModal(ticketId) {
+    const showAssignModal = (ticketId) => {
       document.getElementById('assignTicketId').value = ticketId;
       new bootstrap.Modal(document.getElementById('assignModal')).show();
-    }
+    };
 
-    // Confirm single ticket assignment
-    async function confirmAssignSingle() {
+    const confirmAssignSingle = async () => {
       const ticketId = document.getElementById('assignTicketId').value;
       const ticketType = document.getElementById('assignTicketType').value;
 
@@ -706,15 +679,13 @@
 
         bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
         showToast('success', result.message);
-        await loadStats();
-        await loadTickets();
+        await Promise.all([loadStats(), loadTickets()]);
       } catch (error) {
         showToast('danger', error.message);
       }
-    }
+    };
 
-    // Validate ticket
-    async function validateTicket(ticketId) {
+    const validateTicket = async (ticketId) => {
       if (!confirm('Marquer ce ticket comme présent ?')) return;
 
       try {
@@ -730,52 +701,75 @@
         }
 
         showToast('success', 'Ticket validé avec succès');
-        await loadStats();
-        await loadTickets();
+        await Promise.all([loadStats(), loadTickets()]);
       } catch (error) {
         showToast('danger', error.message);
       }
-    }
+    };
 
-    // Filter tickets
-    function filterTickets() {
+    const downloadTicketImage = async (code, ticketType) => {
+      try {
+        const template = ticketType === 'VIP' ? 'vip' : 'normal';
+        const response = await fetch(`/api/users/my-tickets/download/${code}?template=${template}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Erreur lors du téléchargement');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ticket-${code}-${template}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast('success', 'Ticket téléchargé avec succès');
+        setTimeout(() => loadTickets(), 500);
+      } catch (error) {
+        console.error('Error downloading ticket image:', error);
+        showToast('danger', error.message);
+      }
+    };
+
+    // ============================================================
+    // FILTERING & SEARCH
+    // ============================================================
+    const filterTickets = () => {
       const typeFilter = document.getElementById('typeFilter').value;
       const statusFilter = document.getElementById('statusFilter').value;
       const searchTerm = document.getElementById('searchInput').value.toLowerCase();
 
       filteredData = ticketsData.filter(ticket => {
-        let matches = true;
+        if (typeFilter !== 'all' && ticket.ticketType !== typeFilter) return false;
+        
+        if (statusFilter === 'assigned' && !ticket.isAssigned) return false;
+        if (statusFilter === 'unassigned' && ticket.isAssigned) return false;
+        if (statusFilter === 'used' && !ticket.isUsed) return false;
 
-        if (typeFilter !== 'all' && ticket.ticketType !== typeFilter) {
-          matches = false;
+        if (searchTerm) {
+          const codeMatch = ticket.code.toLowerCase().includes(searchTerm);
+          const assignedToMatch = ticket.assignedTo && ticket.assignedTo.toLowerCase().includes(searchTerm);
+          if (!codeMatch && !assignedToMatch) return false;
         }
 
-        if (statusFilter === 'assigned' && !ticket.isAssigned) {
-          matches = false;
-        } else if (statusFilter === 'unassigned' && ticket.isAssigned) {
-          matches = false;
-        } else if (statusFilter === 'used' && !ticket.isUsed) {
-          matches = false;
-        }
-
-        if (searchTerm && !ticket.code.toLowerCase().includes(searchTerm) && 
-            !(ticket.assignedTo && ticket.assignedTo.toLowerCase().includes(searchTerm))) {
-          matches = false;
-        }
-
-        return matches;
+        return true;
       });
 
       currentPage = 1;
       renderTable();
-    }
+    };
 
-    function searchTickets() {
-      filterTickets();
-    }
+    const searchTickets = () => filterTickets();
 
-    // Generate tickets (admin only)
-    async function generateTickets() {
+    // ============================================================
+    // ADMIN OPERATIONS
+    // ============================================================
+    const generateTickets = async () => {
       const countStr = prompt('Nombre de tickets à générer (1-1000):', '200');
       if (!countStr) return;
 
@@ -785,11 +779,9 @@
         return;
       }
 
-      // Show progress modal
       const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
       progressModal.show();
 
-      // Reset progress
       document.getElementById('progressBar').style.width = '0%';
       document.getElementById('progressPercent').textContent = '0%';
       document.getElementById('progressLabel').textContent = 'Initialisation...';
@@ -797,9 +789,6 @@
       document.getElementById('batchInfo').textContent = 'Batch: -';
 
       try {
-        // Use SSE for real-time progress
-        // Note: Token in URL because EventSource cannot send custom headers
-        const token = localStorage.getItem('token');
         const eventSource = new EventSource(`/generate-tickets-stream?count=${count}&token=${token}`);
 
         eventSource.onmessage = (event) => {
@@ -821,7 +810,6 @@
               document.getElementById('progressLabel').textContent = '✓ Généré avec succès!';
               document.getElementById('ticketCount').textContent = `Total générés: ${data.generated}`;
 
-              // Close modal after 2 seconds
               setTimeout(() => {
                 progressModal.hide();
                 showToast('success', `✓ ${data.generated} tickets générés avec succès`);
@@ -848,16 +836,14 @@
         progressModal.hide();
         showToast('danger', `Erreur: ${error.message}`);
       }
-    }
+    };
 
-    // Delete all tickets (admin only)
-    async function deleteAllTickets() {
+    const deleteAllTickets = async (evt) => {
       if (!confirm('ATTENTION: Supprimer TOUS les tickets ? Cette action est irréversible !')) return;
       if (!confirm('Êtes-vous vraiment sûr ? Tous les tickets seront perdus ET le compteur sera réinitialisé.')) return;
 
       try {
-        // Show loading state
-        const btn = event.target;
+        const btn = evt.target;
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Suppression...';
@@ -872,23 +858,19 @@
         const result = await response.json();
         showToast('success', `✓ ${result.data.deletedCount} tickets supprimés et compteur réinitialisé`);
         
-        // Restore button
         btn.disabled = false;
         btn.innerHTML = originalText;
 
-        // Refresh data
-        await loadStats();
-        await loadTickets();
+        await Promise.all([loadStats(), loadTickets()]);
       } catch (error) {
         showToast('danger', error.message);
-        const btn = event.target;
+        const btn = evt.target;
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-trash3"></i> Tout Supprimer';
       }
-    }
+    };
 
-    // Export to CSV
-    async function exportToCSV() {
+    const exportToCSV = async () => {
       try {
         const response = await fetch('/admin/export-csv', {
           headers: { Authorization: `Bearer ${token}` }
@@ -907,17 +889,17 @@
       } catch (error) {
         showToast('danger', error.message);
       }
-    }
+    };
 
-    // Refresh data
-    async function refreshData() {
-      await loadStats();
-      await loadTickets();
+    const refreshData = async () => {
+      await Promise.all([loadStats(), loadTickets()]);
       showToast('info', 'Données actualisées');
-    }
+    };
 
-    // Show toast notification
-    function showToast(type, message) {
+    // ============================================================
+    // UI UTILITIES
+    // ============================================================
+    const showToast = (type, message) => {
       const container = document.querySelector('.toast-container');
       const toast = document.createElement('div');
       toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
@@ -930,47 +912,40 @@
       `;
       container.appendChild(toast);
       setTimeout(() => toast.remove(), 5000);
-    }
+    };
 
-    // Logout
-    function logout() {
+    const logout = () => {
       localStorage.removeItem('token');
       window.location.href = '/admin-auth.html';
-    }
+    };
 
-    // Download ticket image
-    async function downloadTicketImage(code, ticketType) {
-      try {
-        const template = ticketType === 'VIP' ? 'vip' : 'normal';
-        const response = await fetch(`/api/users/my-tickets/download/${code}?template=${template}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Erreur lors du téléchargement');
+    // ============================================================
+    // INITIALIZATION
+    // ============================================================
+    (async () => {
+      const userData = parseJwt(token);
+      if (userData) {
+        currentUser = userData;
+        console.log('✓ Utilisateur connecté:', userData);
+        
+        if (userData.role === 'normal') {
+          window.location.href = '/pending.html';
+          return;
         }
+        
+        document.getElementById('userName').textContent = getUserDisplayName(userData);
+        const roleElement = document.getElementById('userRole');
+        roleElement.textContent = userData.role.toUpperCase();
+        roleElement.className = `role-badge role-${userData.role}`;
+        document.getElementById('assignToUser').textContent = getUserDisplayName(userData);
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ticket-${code}-${template}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        showToast('success', 'Ticket téléchargé avec succès');
-        // Refresh tickets to show updated status
-        setTimeout(() => loadTickets(), 500);
-      } catch (error) {
-        console.error('Error downloading ticket image:', error);
-        showToast('danger', error.message);
+        if (userData.role !== 'admin') {
+          document.getElementById('adminControls').style.display = 'none';
+        }
       }
-    }
-
-    // Initialize on load
-    init();
+      
+      await Promise.all([loadStats(), loadTickets()]);
+    })();
   </script>
 </body>
 </html>

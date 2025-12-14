@@ -4,7 +4,7 @@
   "description": "Comprehensive event ticket management system with VIP/NORMAL types, unified admin panel, QR codes, PDF generation, and role-based access control",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "nodemon index.js",
     "dev": "nodemon index.js",
     "seed:users": "node scripts/seedUsers.js",
     "test:v4": "node scripts/testV4.js",

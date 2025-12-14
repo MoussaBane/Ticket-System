@@ -535,10 +535,15 @@ app.post('/delete-all-tickets', adminAuth, async (req, res) => {
  */
 app.get('/generate-tickets-stream', async (req, res) => {
   try {
+    // Set SSE headers once to avoid header re-sends after writes
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
     // Verify token from query parameter (EventSource limitation)
     const token = req.query.token;
     if (!token) {
-      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
@@ -554,7 +559,6 @@ app.get('/generate-tickets-stream', async (req, res) => {
     try {
       decoded = await verifyJWT(token);
     } catch (err) {
-      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
@@ -567,7 +571,6 @@ app.get('/generate-tickets-stream', async (req, res) => {
 
     // Check admin auth
     if (decoded.role !== 'admin') {
-      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
@@ -578,17 +581,23 @@ app.get('/generate-tickets-stream', async (req, res) => {
       return;
     }
 
-    let { count = 200, ticketType = 'NORMAL' } = req.query;
+    let { count = 200, ticketType = '' } = req.query;
     count = Math.min(Math.max(parseInt(count), 1), 1000);
 
-    // Normalize and validate ticket type
-    ticketType = ticketType.toString().toUpperCase().trim() || 'NORMAL';
-    if (!['VIP', 'NORMAL'].includes(ticketType)) {
-      res.setHeader('Content-Type', 'text/event-stream');
+    // Normalize and validate ticket type: allow VIP/NORMAL or blank/N/A
+    const rawType = (ticketType ?? '').toString().trim();
+    const upperType = rawType.toUpperCase();
+    if (!rawType || upperType === 'N/A' || upperType === 'NA') {
+      ticketType = ' ';
+    } else {
+      ticketType = upperType;
+    }
+
+    if (!['VIP', 'NORMAL', ' '].includes(ticketType)) {
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
-          message: 'Invalid ticketType. Use VIP or NORMAL.',
+          message: 'Invalid ticketType. Use VIP, NORMAL, or leave empty.',
         })}\n\n`
       );
       res.end();
@@ -601,42 +610,41 @@ app.get('/generate-tickets-stream', async (req, res) => {
       await setCounter('ticketNo', 0);
     }
 
-    // Enforce ticket type limits with remaining calculation
-    const typeCount = await Ticket.countDocuments({ ticketType });
-    const limit = ticketType === 'VIP' ? 90 : 410;
-    const remaining = limit - typeCount;
+    // Enforce ticket type limits only for VIP/NORMAL
+    const enforceLimit = ticketType === 'VIP' || ticketType === 'NORMAL';
+    let limit = null;
+    let remaining = null;
+    if (enforceLimit) {
+      const typeCount = await Ticket.countDocuments({ ticketType });
+      limit = ticketType === 'VIP' ? 90 : 410;
+      remaining = limit - typeCount;
 
-    if (remaining <= 0) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.write(
-        `data: ${JSON.stringify({
-          type: 'error',
-          message: `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`,
-        })}\n\n`
-      );
-      res.end();
-      return;
+      if (remaining <= 0) {
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'error',
+            message: `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`,
+          })}\n\n`
+        );
+        res.end();
+        return;
+      }
+
+      // If request exceeds remaining, clamp to remaining and inform client
+      if (count > remaining) {
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'info',
+            message: `Guichet ${ticketType}: demande réduite à ${remaining} (limite ${limit}).`,
+            requested: count,
+            adjusted: remaining,
+            remaining,
+            limit,
+          })}\n\n`
+        );
+        count = remaining;
+      }
     }
-
-    if (count > remaining) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.write(
-        `data: ${JSON.stringify({
-          type: 'error',
-          message: `Guichet ${ticketType}: il reste ${remaining} sur ${limit}. Réduisez le nombre ou changez de type.`,
-          remaining,
-          limit,
-        })}\n\n`
-      );
-      res.end();
-      return;
-    }
-
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
 
     console.log(`[SSE] Starting generation of ${count} tickets...`);
 
@@ -722,12 +730,21 @@ app.get('/generate-tickets-stream', async (req, res) => {
  */
 app.post('/generate-tickets', adminAuth, async (req, res) => {
   try {
-    let { count = 200, ticketType = 'NORMAL' } = req.body;
+    let { count = 200, ticketType = '' } = req.body;
     count = Math.min(Math.max(parseInt(count), 1), 1000); // Clamp between 1 and 1000
-    ticketType = ticketType.toString().toUpperCase().trim() || 'NORMAL';
+    const requestedCount = count; // Preserve the original request for reporting
 
-    if (!['VIP', 'NORMAL'].includes(ticketType)) {
-      return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
+    // Normalize ticket type: allow VIP/NORMAL or default blank/N/A
+    const rawType = (ticketType ?? '').toString().trim();
+    const upperType = rawType.toUpperCase();
+    if (!rawType || upperType === 'N/A' || upperType === 'NA') {
+      ticketType = ' ';
+    } else {
+      ticketType = upperType;
+    }
+
+    if (!['VIP', 'NORMAL', ' '].includes(ticketType)) {
+      return sendValidationError(res, 'Ticket type must be VIP, NORMAL, or left empty');
     }
 
     console.log(`Starting generation of ${count} tickets...`);
@@ -738,21 +755,27 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
       await setCounter('ticketNo', 0);
     }
 
-    // Enforce ticket type limits with remaining calculation
-    const typeCount = await Ticket.countDocuments({ ticketType });
-    const limit = ticketType === 'VIP' ? 90 : 410;
-    const remaining = limit - typeCount;
+    // Enforce ticket type limits only for VIP/NORMAL
+    let limit = null;
+    let remaining = null;
+    let typeCount = null;
+    let infoMessage = null;
 
-    if (remaining <= 0) {
-      return sendError(res, `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`, 400);
-    }
+    const enforceLimit = ticketType === 'VIP' || ticketType === 'NORMAL';
+    if (enforceLimit) {
+      typeCount = await Ticket.countDocuments({ ticketType });
+      limit = ticketType === 'VIP' ? 90 : 410;
+      remaining = limit - typeCount;
 
-    if (count > remaining) {
-      return sendError(
-        res,
-        `Guichet ${ticketType}: il reste ${remaining} sur ${limit}. Réduisez le nombre ou changez de type.`,
-        400
-      );
+      if (remaining <= 0) {
+        return sendError(res, `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`, 400);
+      }
+
+      // If request exceeds remaining, clamp and notify instead of erroring
+      if (count > remaining) {
+        count = remaining;
+        infoMessage = `Guichet ${ticketType}: il reste ${remaining} sur ${limit}. Nombre ajusté à ${remaining}.`;
+      }
     }
 
     // Batch size for optimal performance
@@ -787,15 +810,21 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
 
     console.log(`✓ Successfully generated ${generatedCount} tickets`);
 
+    const successMessage = infoMessage || `Generated ${generatedCount} tickets successfully`;
+
     return sendSuccess(
       res,
       {
+        requestedCount,
         count: generatedCount,
         totalGenerated: generatedCount,
+        limit,
+        remainingAfter: enforceLimit ? limit - (typeCount + generatedCount) : null,
+        info: infoMessage,
         timestamp: new Date().toISOString(),
       },
       201,
-      `Generated ${generatedCount} tickets successfully`
+      successMessage
     );
   } catch (err) {
     console.error('Error generating tickets:', err);
