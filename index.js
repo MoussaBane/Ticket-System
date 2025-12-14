@@ -601,15 +601,31 @@ app.get('/generate-tickets-stream', async (req, res) => {
       await setCounter('ticketNo', 0);
     }
 
-    // Enforce ticket type limits
+    // Enforce ticket type limits with remaining calculation
     const typeCount = await Ticket.countDocuments({ ticketType });
     const limit = ticketType === 'VIP' ? 90 : 410;
-    if (typeCount + count > limit) {
+    const remaining = limit - typeCount;
+
+    if (remaining <= 0) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
-          message: `Limite ${ticketType} dépassée. Max ${limit}, actuels ${typeCount}.`,
+          message: `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`,
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    if (count > remaining) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'error',
+          message: `Guichet ${ticketType}: il reste ${remaining} sur ${limit}. Réduisez le nombre ou changez de type.`,
+          remaining,
+          limit,
         })}\n\n`
       );
       res.end();
@@ -720,6 +736,23 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
     const totalTickets = await Ticket.countDocuments();
     if (totalTickets === 0) {
       await setCounter('ticketNo', 0);
+    }
+
+    // Enforce ticket type limits with remaining calculation
+    const typeCount = await Ticket.countDocuments({ ticketType });
+    const limit = ticketType === 'VIP' ? 90 : 410;
+    const remaining = limit - typeCount;
+
+    if (remaining <= 0) {
+      return sendError(res, `Guichet ${ticketType} fermé: limite ${limit} déjà atteinte.`, 400);
+    }
+
+    if (count > remaining) {
+      return sendError(
+        res,
+        `Guichet ${ticketType}: il reste ${remaining} sur ${limit}. Réduisez le nombre ou changez de type.`,
+        400
+      );
     }
 
     // Batch size for optimal performance
