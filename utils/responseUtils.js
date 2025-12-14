@@ -53,7 +53,7 @@ function sendValidationError(res, errors) {
   const errorArray = Array.isArray(errors) ? errors : [errors];
   res.status(400).json({
     success: false,
-    message: 'Validation failed',
+    message: 'Validation échouée !',
     errors: errorArray,
   });
 }

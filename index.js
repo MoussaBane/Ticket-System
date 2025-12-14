@@ -208,10 +208,10 @@ app.get('/admin/tickets', adminAuth, async (req, res) => {
       })
     );
 
-    return sendSuccess(res, ticketsWithQR, 200, 'Tickets retrieved successfully');
+    return sendSuccess(res, ticketsWithQR, 200, 'Tickets récupérés avec succès');
   } catch (err) {
     console.error('Error fetching tickets:', err);
-    return sendError(res, 'Server error while fetching tickets', 500, err.message);
+    return sendError(res, 'Erreur serveur lors de la récupération des tickets', 500, err.message);
   }
 });
 
@@ -277,7 +277,7 @@ app.get(
           },
         },
         200,
-        'Statistics retrieved successfully'
+        'Statistiques récupérées avec succès'
       );
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -295,15 +295,15 @@ app.get('/admin/tickets/:id', adminAuth, async (req, res) => {
     const ticket = await Ticket.findById(req.params.id);
 
     if (!ticket) {
-      return sendError(res, 'Ticket not found', 404);
+      return sendError(res, 'Ticket introuvable', 404);
     }
 
     const qrUrl = await QRCode.toDataURL(ticket.code);
 
-    return sendSuccess(res, { ...ticket.toObject(), qrUrl }, 200, 'Ticket retrieved');
+    return sendSuccess(res, { ...ticket.toObject(), qrUrl }, 200, 'Ticket récupéré');
   } catch (err) {
     console.error('Error fetching ticket:', err);
-    return sendError(res, 'Server error while fetching ticket', 500, err.message);
+    return sendError(res, 'Erreur serveur lors de la récupération du ticket', 500, err.message);
   }
 });
 
@@ -344,10 +344,10 @@ app.put('/admin/tickets/:id', adminAuth, async (req, res) => {
     });
 
     if (!ticket) {
-      return sendError(res, 'Ticket not found', 404);
+      return sendError(res, 'Ticket introuvable', 404);
     }
 
-    return sendSuccess(res, ticket.toObject(), 200, 'Ticket updated successfully');
+    return sendSuccess(res, ticket.toObject(), 200, 'Ticket mis à jour avec succès');
   } catch (err) {
     console.error('Error updating ticket:', err);
     return sendError(res, 'Server error while updating ticket', 500, err.message);
@@ -368,26 +368,26 @@ app.put(
 
       // Validate ticketType
       if (!ticketType || !['VIP', 'NORMAL'].includes(ticketType)) {
-        return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
+        return sendValidationError(res, 'Le type de ticket est requis (VIP ou NORMAL)');
       }
 
       // Validate ticket ID
       if (!req.params.id || req.params.id.trim() === '') {
-        return sendValidationError(res, 'Ticket ID is required');
+        return sendValidationError(res, "L'identifiant du ticket est requis");
       }
 
       // Get user info from token
       const userId = req.user.id;
       if (!userId) {
         console.error('Error: User ID not found in token. Token payload:', req.user);
-        return sendError(res, 'User information not available', 401);
+        return sendError(res, 'Informations utilisateur non disponibles', 401);
       }
 
       const userName =
         req.user.nom && req.user.prenom ? `${req.user.prenom} ${req.user.nom}` : req.user.email;
 
       if (!userName) {
-        return sendError(res, 'User name or email not found', 401);
+        return sendError(res, 'Nom ou email utilisateur introuvable', 401);
       }
 
       // Check if ticket exists
@@ -409,10 +409,10 @@ app.put(
         { new: true }
       );
 
-      return sendSuccess(res, ticket.toObject(), 200, `Ticket ${ticketType} assigned successfully`);
+      return sendSuccess(res, ticket.toObject(), 200, `Ticket ${ticketType} assigné avec succès`);
     } catch (err) {
       console.error('Error assigning ticket:', err);
-      return sendError(res, 'Server error while assigning ticket', 500, err.message);
+      return sendError(res, "Erreur serveur lors de l'assignation du ticket", 500, err.message);
     }
   }
 );
@@ -500,7 +500,11 @@ app.post(
       }).limit(count);
 
       if (unassignedTickets.length < count) {
-        return sendError(res, `Only ${unassignedTickets.length} unassigned tickets available`, 400);
+        return sendError(
+          res,
+          `Seulement ${unassignedTickets.length} tickets non assignés disponibles`,
+          400
+        );
       }
 
       // Update tickets
@@ -524,11 +528,11 @@ app.post(
           assignedTo: userName,
         },
         200,
-        `${result.modifiedCount} tickets ${ticketType} assigned successfully`
+        `${result.modifiedCount} tickets ${ticketType} assignés avec succès`
       );
     } catch (err) {
       console.error('Error assigning tickets:', err);
-      return sendError(res, 'Server error while assigning tickets', 500, err.message);
+      return sendError(res, "Erreur serveur lors de l'assignation des tickets", 500, err.message);
     }
   }
 );
@@ -542,13 +546,13 @@ app.delete('/tickets/:id', adminAuth, async (req, res) => {
     const deleted = await Ticket.findByIdAndDelete(req.params.id);
 
     if (!deleted) {
-      return sendError(res, 'Ticket not found', 404);
+      return sendError(res, 'Ticket introuvable', 404);
     }
 
-    return sendSuccess(res, null, 200, 'Ticket deleted successfully');
+    return sendSuccess(res, null, 200, 'Ticket supprimé avec succès');
   } catch (err) {
     console.error('Error deleting ticket:', err);
-    return sendError(res, 'Server error while deleting ticket', 500, err.message);
+    return sendError(res, 'Erreur serveur lors de la suppression du ticket', 500, err.message);
   }
 });
 
@@ -567,11 +571,11 @@ app.post('/delete-all-tickets', adminAuth, async (req, res) => {
       res,
       { deletedCount: result.deletedCount },
       200,
-      `${result.deletedCount} tickets deleted and counter reset`
+      `${result.deletedCount} tickets supprimés et compteur réinitialisé`
     );
   } catch (err) {
     console.error('Error deleting all tickets:', err);
-    return sendError(res, 'Server error while deleting tickets', 500, err.message);
+    return sendError(res, 'Erreur serveur lors de la suppression des tickets', 500, err.message);
   }
 });
 /**
@@ -594,7 +598,7 @@ app.get('/generate-tickets-stream', async (req, res) => {
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
-          message: 'No token provided',
+          message: 'Aucun jeton fourni',
         })}\n\n`
       );
       res.end();
@@ -609,7 +613,7 @@ app.get('/generate-tickets-stream', async (req, res) => {
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
-          message: 'Invalid token',
+          message: 'Jeton invalide',
         })}\n\n`
       );
       res.end();
@@ -621,7 +625,7 @@ app.get('/generate-tickets-stream', async (req, res) => {
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
-          message: 'Admin access required',
+          message: 'Accès administrateur requis',
         })}\n\n`
       );
       res.end();
@@ -791,7 +795,7 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
     }
 
     if (!['VIP', 'NORMAL', 'UNKNOWN'].includes(ticketType)) {
-      return sendValidationError(res, 'Ticket type must be VIP, NORMAL, or left empty');
+      return sendValidationError(res, 'Le type de ticket doit être VIP, NORMAL, ou laissé vide');
     }
 
     console.log(`Starting generation of ${count} tickets...`);
@@ -875,7 +879,7 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
     );
   } catch (err) {
     console.error('Error generating tickets:', err);
-    return sendError(res, 'Server error while generating tickets', 500, err.message);
+    return sendError(res, 'Erreur serveur lors de la génération des tickets', 500, err.message);
   }
 });
 

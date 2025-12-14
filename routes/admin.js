@@ -26,10 +26,15 @@ router.get('/reservations', verifyToken, roleAuth('admin'), async (req, res) => 
       .populate('ticketId', 'code pdfUrl')
       .sort({ createdAt: 1 });
 
-    return sendSuccess(res, reservations, 200, 'Reservations retrieved');
+    return sendSuccess(res, reservations, 200, 'Réservations récupérées');
   } catch (err) {
     console.error('Error fetching reservations:', err);
-    return sendError(res, 'Server error while fetching reservations', 500, err.message);
+    return sendError(
+      res,
+      'Erreur serveur lors de la récupération des réservations',
+      500,
+      err.message
+    );
   }
 });
 
@@ -47,7 +52,7 @@ router.post(
       const pending = await Reservation.find({ status: 'PENDING' });
 
       if (pending.length === 0) {
-        return sendSuccess(res, { count: 0 }, 200, 'No pending reservations to process');
+        return sendSuccess(res, { count: 0 }, 200, 'Aucune réservation en attente à traiter');
       }
 
       const createdTickets = [];
@@ -92,11 +97,11 @@ router.post(
           errors: errors.length > 0 ? errors : undefined,
         },
         200,
-        `Generated ${createdTickets.length} tickets successfully`
+        `${createdTickets.length} tickets générés avec succès`
       );
     } catch (err) {
       console.error('Error generating tickets:', err);
-      return sendError(res, 'Server error while generating tickets', 500, err.message);
+      return sendError(res, 'Erreur serveur lors de la génération des tickets', 500, err.message);
     }
   }
 );
