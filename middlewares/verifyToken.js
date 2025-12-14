@@ -18,11 +18,11 @@ const verifyToken = async (req, res, next) => {
     const { jwtVerify } = require("jose");
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
-    if (!secret || process.env.JWT_SECRET.length === 0) {
-      console.error("JWT_SECRET not configured");
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+      console.error('JWT_SECRET not configured or too short (min 32 chars)');
       return res.status(500).json({
         success: false,
-        message: "Server configuration error",
+        message: 'Server configuration error',
       });
     }
 

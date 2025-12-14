@@ -33,8 +33,8 @@ const { sendSuccess, sendError, sendValidationError } = require('./utils/respons
 const verifyJWT = async (token) => {
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    if (!secret || process.env.JWT_SECRET.length === 0) {
-      throw new Error('JWT_SECRET not configured');
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+      throw new Error('JWT_SECRET not configured or too short (min 32 chars)');
     }
     const { payload } = await jwtVerify(token, secret);
     return payload;
@@ -53,10 +53,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from public folder
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Configure view engine for PDF templates
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
 
 // =====================
 // ROUTES CONFIGURATION

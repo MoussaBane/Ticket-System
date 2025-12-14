@@ -198,8 +198,8 @@
   <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: rgba(0, 0, 0, 0.7)">
     <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center" href="#">
-        <img src="/logo.jpg" alt="AEEMT Logo" class="me-2" />
+      <a class="navbar-brand d-flex align-items-center" href="/" style="cursor: pointer;">
+        <img src="/logo.jpg" alt="AEEMT Logo" class="me-2" style="cursor: pointer;" />
         <span class="fw-bold">Panel Admin - Concert Lil-Dou</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
@@ -461,18 +461,16 @@
       return user?.prenom && user?.nom ? `${user.prenom} ${user.nom}` : user?.email || 'N/A';
     };
 
-    // Token expiration check
+    // Token expiration check - redirection silencieuse
     setInterval(() => {
       if (isTokenExpired(token)) {
         localStorage.removeItem('token');
-        alert('Votre session a expiré. Veuillez vous reconnecter.');
         window.location.href = '/admin-auth.html';
       }
     }, 60000);
 
     if (isTokenExpired(token)) {
       localStorage.removeItem('token');
-      alert('Votre session a expiré. Veuillez vous reconnecter.');
       window.location.href = '/admin-auth.html';
     }
 

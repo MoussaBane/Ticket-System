@@ -69,12 +69,14 @@
   <body>
     <div class="container py-5">
       <header class="text-center mb-5">
-        <img
-          src="/logo.jpg"
-          alt="Logo YachtParty"
-          class="img-fluid rounded-circle shadow-lg border border-1 border-white"
-          style="max-height: 140px; background: black; padding: 0px"
-        />
+        <a href="/" style="text-decoration: none; display: inline-block;">
+          <img
+            src="/logo.jpg"
+            alt="Logo YachtParty"
+            class="img-fluid rounded-circle shadow-lg border border-1 border-white"
+            style="max-height: 140px; background: black; padding: 0px; cursor: pointer;"
+          />
+        </a>
         <h1 class="mt-3">🎟️ A.E.E.M.T. CONCERT LIL-DOU 🎟️</h1>
         <p class="lead"><b>Validation de tickets</b></p>
       </header>
@@ -191,7 +193,9 @@
         try {
           const token = localStorage.getItem("token");
           if (!token) {
-            throw new Error("Vous devez être connecté pour valider un billet");
+            // Redirection silencieuse vers la page de login
+            window.location.href = '/admin-auth.html';
+            return;
           }
 
           const response = await fetch(
@@ -204,9 +208,10 @@
           );
 
           if (response.status === 401) {
-            throw new Error(
-              "Session expirée ou invalide. Veuillez vous reconnecter."
-            );
+            // Session expirée - redirection automatique
+            localStorage.removeItem('token');
+            window.location.href = '/admin-auth.html';
+            return;
           }
 
           if (response.status === 403) {

@@ -6,9 +6,11 @@ services:
     buildCommand: npm install
     startCommand: node index.js
     envVars:
-      - key: DB_USERNAME
-        value: banemoussa2001
-      - key: DB_PASSWORD
-        value: D56uTjtyrXYdUDQm
+      - key: NODE_ENV
+        value: production
       - key: PORT
         value: 10000
+      # Configure these in Render Dashboard:
+      # - DB_URI: Your MongoDB Atlas connection string
+      # - JWT_SECRET: Random 32+ character string
+      # - BASE_URL: Your Render app URL

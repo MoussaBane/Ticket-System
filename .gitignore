@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.local
+.env.*.local
 data.json
 index_copy.js
 index_copy.html
@@ -15,4 +17,3 @@ Thumbs.db
 *.tmp
 coverage/
 *.local
-*.env*

@@ -44,18 +44,6 @@ const ticketSchema = new mongoose.Schema(
       ref: 'Reservation',
     },
 
-    // PDF and QR code data
-    qrData: String,
-    pdfUrl: String,
-
-    // Email sending tracking
-    sent: {
-      type: Boolean,
-      default: false,
-      index: true,
-    },
-    sentAt: Date,
-
     // Download tracking
     isDownloaded: {
       type: Boolean,
