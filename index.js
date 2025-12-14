@@ -88,6 +88,10 @@ app.post('/validate-ticket', verifyToken, roleAuth('admin', 'manager'), async (r
       return sendError(res, 'Ticket not found', 404);
     }
 
+    if (!ticket.isAssigned) {
+      return sendValidationError(res, 'Ticket must be assigned before it can be validated');
+    }
+
     if (ticket.isUsed) {
       return sendSuccess(
         res,
@@ -125,6 +129,10 @@ app.get('/validate', verifyToken, roleAuth('admin', 'manager'), async (req, res)
 
     if (!ticket) {
       return sendError(res, 'Ticket not found', 404);
+    }
+
+    if (!ticket.isAssigned) {
+      return sendValidationError(res, 'Ticket must be assigned before it can be validated');
     }
 
     if (ticket.isUsed) {
@@ -415,20 +423,25 @@ app.put(
  */
 app.put('/admin/tickets/:id/validate', adminAuth, async (req, res) => {
   try {
-    const ticket = await Ticket.findByIdAndUpdate(
-      req.params.id,
-      {
-        isUsed: true,
-        usedAt: new Date(),
-      },
-      { new: true }
-    );
+    const existingTicket = await Ticket.findById(req.params.id);
 
-    if (!ticket) {
+    if (!existingTicket) {
       return sendError(res, 'Ticket not found', 404);
     }
 
-    return sendSuccess(res, ticket.toObject(), 200, 'Ticket validated successfully');
+    if (!existingTicket.isAssigned) {
+      return sendValidationError(res, 'Ticket must be assigned before it can be validated');
+    }
+
+    if (existingTicket.isUsed) {
+      return sendSuccess(res, existingTicket.toObject(), 200, 'Ticket already validated');
+    }
+
+    existingTicket.isUsed = true;
+    existingTicket.usedAt = new Date();
+    await existingTicket.save();
+
+    return sendSuccess(res, existingTicket.toObject(), 200, 'Ticket validated successfully');
   } catch (err) {
     console.error('Error validating ticket:', err);
     return sendError(res, 'Server error while validating ticket', 500, err.message);
