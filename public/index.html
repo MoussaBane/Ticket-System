@@ -225,14 +225,19 @@
           const data = await response.json();
 
           const date = new Date(data.usedAt || new Date()).toLocaleString();
+          
+          // Déterminer si c'est un ticket déjà utilisé
+          const isAlreadyUsed = data.message && data.message.includes("déjà utilisé");
+          const alertClass = isAlreadyUsed ? "alert-danger" : "alert-success";
+          
           resultDiv.innerHTML = `
-            <div class="alert alert-success w-100">
+            <div class="alert ${alertClass} w-100">
                 <h4> ${
                   data.message || "Billet validé!"
                 }</h4>
                 <hr>
-                <p>Code: <strong>${code}</strong></p>
-                <p>Validé le: <strong>${date}</strong></p>
+                <p><b>Code: </b><strong>${code}</strong></p>
+                <p><b>Validé le: </b><strong>${date}</strong></p>
             </div>`;
 
           // Effacer le champ après validation
