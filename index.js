@@ -19,31 +19,27 @@ const adminAuthRoutes = require("./routes/auth");
 const managerRoutes = require("./routes/manager");
 const adminRoutes = require("./routes/admin");
 const usersRoutes = require("./routes/users");
-const { getNextSequence } = require("./services/counterService");
+const { getNextSequence, setCounter } = require('./services/counterService');
 
 // Middlewares
-const verifyToken = require("./middlewares/verifyToken");
-const roleAuth = require("./middlewares/roleAuth");
-const adminAuth = require("./middlewares/adminAuth");
+const verifyToken = require('./middlewares/verifyToken');
+const roleAuth = require('./middlewares/roleAuth');
+const adminAuth = require('./middlewares/adminAuth');
 
 // Utilities
-const {
-  sendSuccess,
-  sendError,
-  sendValidationError,
-} = require("./utils/responseUtils");
+const { sendSuccess, sendError, sendValidationError } = require('./utils/responseUtils');
 
 // Helper to verify JWT token
 const verifyJWT = async (token) => {
   try {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     if (!secret || process.env.JWT_SECRET.length === 0) {
-      throw new Error("JWT_SECRET not configured");
+      throw new Error('JWT_SECRET not configured');
     }
     const { payload } = await jwtVerify(token, secret);
     return payload;
   } catch (err) {
-    throw new Error("Invalid or expired token");
+    throw new Error('Invalid or expired token');
   }
 };
 
@@ -56,23 +52,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from public folder
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Configure view engine for PDF templates
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "ejs");
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
 // =====================
 // ROUTES CONFIGURATION
 // =====================
 
 // Authentication routes (login, register)
-app.use("/admin", adminAuthRoutes);
+app.use('/admin', adminAuthRoutes);
 
 // API routes for manager and admin workflows
-app.use("/api/manager", managerRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/users", usersRoutes);
+app.use('/api/manager', managerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/users', usersRoutes);
 
 // =====================
 // TICKET VALIDATION ENDPOINTS
@@ -82,111 +78,86 @@ app.use("/api/users", usersRoutes);
  * POST /validate-ticket
  * Validate a ticket via QR code scan (admin/manager only)
  */
-app.post(
-  "/validate-ticket",
-  verifyToken,
-  roleAuth("admin", "manager"),
-  async (req, res) => {
-    const { code } = req.body;
+app.post('/validate-ticket', verifyToken, roleAuth('admin', 'manager'), async (req, res) => {
+  const { code } = req.body;
 
-    if (!code || code.trim() === "") {
-      return sendValidationError(res, "Ticket code is required");
+  if (!code || code.trim() === '') {
+    return sendValidationError(res, 'Ticket code is required');
+  }
+
+  try {
+    const ticket = await Ticket.findOne({ code });
+
+    if (!ticket) {
+      return sendError(res, 'Ticket not found', 404);
     }
 
-    try {
-      const ticket = await Ticket.findOne({ code });
-
-      if (!ticket) {
-        return sendError(res, "Ticket not found", 404);
-      }
-
-      if (ticket.isUsed) {
-        return sendSuccess(
-          res,
-          { usedAt: ticket.usedAt },
-          200,
-          `Ticket already used on ${ticket.usedAt.toLocaleString()}`
-        );
-      }
-
-      // Mark ticket as used
-      ticket.isUsed = true;
-      ticket.usedAt = new Date();
-      await ticket.save();
-
+    if (ticket.isUsed) {
       return sendSuccess(
         res,
-        { ticket: ticket.toObject() },
+        { usedAt: ticket.usedAt },
         200,
-        "Ticket validated successfully"
-      );
-    } catch (err) {
-      console.error("Error validating ticket:", err);
-      return sendError(
-        res,
-        "Server error while validating ticket",
-        500,
-        err.message
+        `Ticket already used on ${ticket.usedAt.toLocaleString()}`
       );
     }
+
+    // Mark ticket as used
+    ticket.isUsed = true;
+    ticket.usedAt = new Date();
+    await ticket.save();
+
+    return sendSuccess(res, { ticket: ticket.toObject() }, 200, 'Ticket validated successfully');
+  } catch (err) {
+    console.error('Error validating ticket:', err);
+    return sendError(res, 'Server error while validating ticket', 500, err.message);
   }
-);
+});
 
 /**
  * GET /validate
  * Validate a ticket via URL query parameter
  */
-app.get(
-  "/validate",
-  verifyToken,
-  roleAuth("admin", "manager"),
-  async (req, res) => {
-    const { code } = req.query;
+app.get('/validate', verifyToken, roleAuth('admin', 'manager'), async (req, res) => {
+  const { code } = req.query;
 
-    if (!code || code.trim() === "") {
-      return sendValidationError(res, "Ticket code is required");
+  if (!code || code.trim() === '') {
+    return sendValidationError(res, 'Ticket code is required');
+  }
+
+  try {
+    const ticket = await Ticket.findOne({ code });
+
+    if (!ticket) {
+      return sendError(res, 'Ticket not found', 404);
     }
 
-    try {
-      const ticket = await Ticket.findOne({ code });
-
-      if (!ticket) {
-        return sendError(res, "Ticket not found", 404);
-      }
-
-      if (ticket.isUsed) {
-        return sendSuccess(
-          res,
-          { usedAt: ticket.usedAt },
-          200,
-          `Ticket already used on ${ticket.usedAt.toLocaleString()}`
-        );
-      }
-
-      // Mark ticket as used
-      const updatedTicket = await Ticket.findByIdAndUpdate(
-        ticket._id,
-        { isUsed: true, usedAt: new Date() },
-        { new: true }
-      );
-
+    if (ticket.isUsed) {
       return sendSuccess(
         res,
-        { ticket: updatedTicket.toObject() },
+        { usedAt: ticket.usedAt },
         200,
-        "Ticket validated successfully"
-      );
-    } catch (err) {
-      console.error("Error validating ticket:", err);
-      return sendError(
-        res,
-        "Server error while validating ticket",
-        500,
-        err.message
+        `Ticket already used on ${ticket.usedAt.toLocaleString()}`
       );
     }
+
+    // Mark ticket as used
+    const updatedTicket = await Ticket.findByIdAndUpdate(
+      ticket._id,
+      { isUsed: true, usedAt: new Date() },
+      { new: true }
+    );
+
+    return sendSuccess(
+      res,
+      { ticket: updatedTicket.toObject() },
+      200,
+      'Ticket validated successfully'
+    );
+  } catch (err) {
+    console.error('Error validating ticket:', err);
+    return sendError(res, 'Server error while validating ticket', 500, err.message);
   }
-);
+});
 
 // =====================
 // TICKET MANAGEMENT ENDPOINTS
@@ -196,19 +167,19 @@ app.get(
  * GET /admin/tickets
  * List all tickets with optional filtering
  */
-app.get("/admin/tickets", adminAuth, async (req, res) => {
+app.get('/admin/tickets', adminAuth, async (req, res) => {
   try {
     const { status } = req.query;
     let query = {};
 
     // Apply status filters
-    if (status === "used") {
+    if (status === 'used') {
       query.isUsed = true;
-    } else if (status === "unused") {
+    } else if (status === 'unused') {
       query.isUsed = false;
-    } else if (status === "assigned") {
+    } else if (status === 'assigned') {
       query.isAssigned = true;
-    } else if (status === "unassigned") {
+    } else if (status === 'unassigned') {
       query.isAssigned = false;
     }
 
@@ -233,20 +204,10 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
       })
     );
 
-    return sendSuccess(
-      res,
-      ticketsWithQR,
-      200,
-      "Tickets retrieved successfully"
-    );
+    return sendSuccess(res, ticketsWithQR, 200, 'Tickets retrieved successfully');
   } catch (err) {
-    console.error("Error fetching tickets:", err);
-    return sendError(
-      res,
-      "Server error while fetching tickets",
-      500,
-      err.message
-    );
+    console.error('Error fetching tickets:', err);
+    return sendError(res, 'Server error while fetching tickets', 500, err.message);
   }
 });
 
@@ -255,22 +216,22 @@ app.get("/admin/tickets", adminAuth, async (req, res) => {
  * Get ticket statistics including VIP/NORMAL breakdown
  */
 app.get(
-  "/admin/tickets/stats/summary",
+  '/admin/tickets/stats/summary',
   verifyToken,
-  roleAuth("admin", "manager"),
+  roleAuth('admin', 'manager'),
   async (req, res) => {
     try {
       const total = await Ticket.countDocuments();
       const assigned = await Ticket.countDocuments({ isAssigned: true });
       const used = await Ticket.countDocuments({ isUsed: true });
-      const vipTotal = await Ticket.countDocuments({ ticketType: "VIP" });
-      const normalTotal = await Ticket.countDocuments({ ticketType: "NORMAL" });
+      const vipTotal = await Ticket.countDocuments({ ticketType: 'VIP' });
+      const normalTotal = await Ticket.countDocuments({ ticketType: 'NORMAL' });
       const vipUsed = await Ticket.countDocuments({
-        ticketType: "VIP",
+        ticketType: 'VIP',
         isUsed: true,
       });
       const normalUsed = await Ticket.countDocuments({
-        ticketType: "NORMAL",
+        ticketType: 'NORMAL',
         isUsed: true,
       });
 
@@ -295,16 +256,11 @@ app.get(
           },
         },
         200,
-        "Statistics retrieved successfully"
+        'Statistics retrieved successfully'
       );
     } catch (err) {
-      console.error("Error fetching stats:", err);
-      return sendError(
-        res,
-        "Server error while fetching statistics",
-        500,
-        err.message
-      );
+      console.error('Error fetching stats:', err);
+      return sendError(res, 'Server error while fetching statistics', 500, err.message);
     }
   }
 );
@@ -313,30 +269,20 @@ app.get(
  * GET /admin/tickets/:id
  * Get a specific ticket by ID
  */
-app.get("/admin/tickets/:id", adminAuth, async (req, res) => {
+app.get('/admin/tickets/:id', adminAuth, async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id);
 
     if (!ticket) {
-      return sendError(res, "Ticket not found", 404);
+      return sendError(res, 'Ticket not found', 404);
     }
 
     const qrUrl = await QRCode.toDataURL(ticket.code);
 
-    return sendSuccess(
-      res,
-      { ...ticket.toObject(), qrUrl },
-      200,
-      "Ticket retrieved"
-    );
+    return sendSuccess(res, { ...ticket.toObject(), qrUrl }, 200, 'Ticket retrieved');
   } catch (err) {
-    console.error("Error fetching ticket:", err);
-    return sendError(
-      res,
-      "Server error while fetching ticket",
-      500,
-      err.message
-    );
+    console.error('Error fetching ticket:', err);
+    return sendError(res, 'Server error while fetching ticket', 500, err.message);
   }
 });
 
@@ -344,7 +290,7 @@ app.get("/admin/tickets/:id", adminAuth, async (req, res) => {
  * PUT /admin/tickets/:id
  * Update a ticket's properties
  */
-app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
+app.put('/admin/tickets/:id', adminAuth, async (req, res) => {
   try {
     const { isUsed, isAssigned, assignedTo } = req.body;
     const update = {};
@@ -361,7 +307,7 @@ app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
 
     // Update assignment status
     if (isAssigned !== undefined) {
-      if (isAssigned && assignedTo && assignedTo.trim() !== "") {
+      if (isAssigned && assignedTo && assignedTo.trim() !== '') {
         update.isAssigned = true;
         update.assignedTo = assignedTo.trim();
         update.assignedAt = update.assignedAt || new Date();
@@ -377,23 +323,13 @@ app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
     });
 
     if (!ticket) {
-      return sendError(res, "Ticket not found", 404);
+      return sendError(res, 'Ticket not found', 404);
     }
 
-    return sendSuccess(
-      res,
-      ticket.toObject(),
-      200,
-      "Ticket updated successfully"
-    );
+    return sendSuccess(res, ticket.toObject(), 200, 'Ticket updated successfully');
   } catch (err) {
-    console.error("Error updating ticket:", err);
-    return sendError(
-      res,
-      "Server error while updating ticket",
-      500,
-      err.message
-    );
+    console.error('Error updating ticket:', err);
+    return sendError(res, 'Server error while updating ticket', 500, err.message);
   }
 });
 
@@ -402,26 +338,21 @@ app.put("/admin/tickets/:id", adminAuth, async (req, res) => {
  * Assign a ticket to the logged-in user with type (VIP/NORMAL)
  */
 app.put(
-  "/admin/tickets/:id/assign",
+  '/admin/tickets/:id/assign',
   verifyToken,
-  roleAuth("admin", "manager"),
+  roleAuth('admin', 'manager'),
   async (req, res) => {
     try {
       const { ticketType } = req.body;
 
-      if (!ticketType || !["VIP", "NORMAL"].includes(ticketType)) {
-        return sendValidationError(
-          res,
-          "Ticket type is required (VIP or NORMAL)"
-        );
+      if (!ticketType || !['VIP', 'NORMAL'].includes(ticketType)) {
+        return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
       }
 
       // Get user info from token
       const userId = req.user.id;
       const userName =
-        req.user.nom && req.user.prenom
-          ? `${req.user.prenom} ${req.user.nom}`
-          : req.user.email;
+        req.user.nom && req.user.prenom ? `${req.user.prenom} ${req.user.nom}` : req.user.email;
 
       const ticket = await Ticket.findByIdAndUpdate(
         req.params.id,
@@ -436,23 +367,13 @@ app.put(
       );
 
       if (!ticket) {
-        return sendError(res, "Ticket not found", 404);
+        return sendError(res, 'Ticket not found', 404);
       }
 
-      return sendSuccess(
-        res,
-        ticket.toObject(),
-        200,
-        `Ticket ${ticketType} assigned successfully`
-      );
+      return sendSuccess(res, ticket.toObject(), 200, `Ticket ${ticketType} assigned successfully`);
     } catch (err) {
-      console.error("Error assigning ticket:", err);
-      return sendError(
-        res,
-        "Server error while assigning ticket",
-        500,
-        err.message
-      );
+      console.error('Error assigning ticket:', err);
+      return sendError(res, 'Server error while assigning ticket', 500, err.message);
     }
   }
 );
@@ -461,7 +382,7 @@ app.put(
  * PUT /admin/tickets/:id/validate
  * Mark a ticket as used/validated
  */
-app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
+app.put('/admin/tickets/:id/validate', adminAuth, async (req, res) => {
   try {
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
@@ -473,23 +394,13 @@ app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
     );
 
     if (!ticket) {
-      return sendError(res, "Ticket not found", 404);
+      return sendError(res, 'Ticket not found', 404);
     }
 
-    return sendSuccess(
-      res,
-      ticket.toObject(),
-      200,
-      "Ticket validated successfully"
-    );
+    return sendSuccess(res, ticket.toObject(), 200, 'Ticket validated successfully');
   } catch (err) {
-    console.error("Error validating ticket:", err);
-    return sendError(
-      res,
-      "Server error while validating ticket",
-      500,
-      err.message
-    );
+    console.error('Error validating ticket:', err);
+    return sendError(res, 'Server error while validating ticket', 500, err.message);
   }
 });
 
@@ -498,29 +409,26 @@ app.put("/admin/tickets/:id/validate", adminAuth, async (req, res) => {
  * Assign multiple tickets at once to the logged-in user
  */
 app.post(
-  "/admin/tickets/assign-bulk",
+  '/admin/tickets/assign-bulk',
   verifyToken,
-  roleAuth("admin", "manager"),
+  roleAuth('admin', 'manager'),
   async (req, res) => {
     try {
       const { count, ticketType } = req.body;
 
       if (!count || count < 1 || count > 100) {
-        return sendValidationError(res, "Count must be between 1 and 100");
+        return sendValidationError(res, 'Count must be between 1 and 100');
       }
 
-      if (!ticketType || !["VIP", "NORMAL"].includes(ticketType)) {
-        return sendValidationError(
-          res,
-          "Ticket type is required (VIP or NORMAL)"
-        );
+      if (!ticketType || !['VIP', 'NORMAL'].includes(ticketType)) {
+        return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
       }
 
       // Check limits
-      const vipCount = await Ticket.countDocuments({ ticketType: "VIP" });
-      const normalCount = await Ticket.countDocuments({ ticketType: "NORMAL" });
+      const vipCount = await Ticket.countDocuments({ ticketType: 'VIP' });
+      const normalCount = await Ticket.countDocuments({ ticketType: 'NORMAL' });
 
-      if (ticketType === "VIP" && vipCount + count > 90) {
+      if (ticketType === 'VIP' && vipCount + count > 90) {
         return sendError(
           res,
           `Cannot assign ${count} VIP tickets. Limit: 90 (${vipCount} already assigned)`,
@@ -528,7 +436,7 @@ app.post(
         );
       }
 
-      if (ticketType === "NORMAL" && normalCount + count > 410) {
+      if (ticketType === 'NORMAL' && normalCount + count > 410) {
         return sendError(
           res,
           `Cannot assign ${count} NORMAL tickets. Limit: 410 (${normalCount} already assigned)`,
@@ -539,21 +447,13 @@ app.post(
       // Get user info from token
       const userId = req.user.id;
       const userName =
-        req.user.nom && req.user.prenom
-          ? `${req.user.prenom} ${req.user.nom}`
-          : req.user.email;
+        req.user.nom && req.user.prenom ? `${req.user.prenom} ${req.user.nom}` : req.user.email;
 
       // Find unassigned tickets
-      const unassignedTickets = await Ticket.find({ isAssigned: false }).limit(
-        count
-      );
+      const unassignedTickets = await Ticket.find({ isAssigned: false }).limit(count);
 
       if (unassignedTickets.length < count) {
-        return sendError(
-          res,
-          `Only ${unassignedTickets.length} unassigned tickets available`,
-          400
-        );
+        return sendError(res, `Only ${unassignedTickets.length} unassigned tickets available`, 400);
       }
 
       // Update tickets
@@ -580,13 +480,8 @@ app.post(
         `${result.modifiedCount} tickets ${ticketType} assigned successfully`
       );
     } catch (err) {
-      console.error("Error assigning tickets:", err);
-      return sendError(
-        res,
-        "Server error while assigning tickets",
-        500,
-        err.message
-      );
+      console.error('Error assigning tickets:', err);
+      return sendError(res, 'Server error while assigning tickets', 500, err.message);
     }
   }
 );
@@ -595,23 +490,18 @@ app.post(
  * DELETE /tickets/:id
  * Delete a single ticket
  */
-app.delete("/tickets/:id", adminAuth, async (req, res) => {
+app.delete('/tickets/:id', adminAuth, async (req, res) => {
   try {
     const deleted = await Ticket.findByIdAndDelete(req.params.id);
 
     if (!deleted) {
-      return sendError(res, "Ticket not found", 404);
+      return sendError(res, 'Ticket not found', 404);
     }
 
-    return sendSuccess(res, null, 200, "Ticket deleted successfully");
+    return sendSuccess(res, null, 200, 'Ticket deleted successfully');
   } catch (err) {
-    console.error("Error deleting ticket:", err);
-    return sendError(
-      res,
-      "Server error while deleting ticket",
-      500,
-      err.message
-    );
+    console.error('Error deleting ticket:', err);
+    return sendError(res, 'Server error while deleting ticket', 500, err.message);
   }
 });
 
@@ -619,12 +509,12 @@ app.delete("/tickets/:id", adminAuth, async (req, res) => {
  * POST /delete-all-tickets
  * Delete all tickets (use with caution!)
  */
-app.post("/delete-all-tickets", adminAuth, async (req, res) => {
+app.post('/delete-all-tickets', adminAuth, async (req, res) => {
   try {
     const result = await Ticket.deleteMany({});
 
     // Reset the counter to 0 when all tickets are deleted
-    await Counter.findByIdAndUpdate("ticketNo", { seq: 0 }, { upsert: true });
+    await Counter.findByIdAndUpdate('ticketNo', { seq: 0 }, { upsert: true });
 
     return sendSuccess(
       res,
@@ -633,13 +523,8 @@ app.post("/delete-all-tickets", adminAuth, async (req, res) => {
       `${result.deletedCount} tickets deleted and counter reset`
     );
   } catch (err) {
-    console.error("Error deleting all tickets:", err);
-    return sendError(
-      res,
-      "Server error while deleting tickets",
-      500,
-      err.message
-    );
+    console.error('Error deleting all tickets:', err);
+    return sendError(res, 'Server error while deleting tickets', 500, err.message);
   }
 });
 /**
@@ -693,8 +578,43 @@ app.get('/generate-tickets-stream', async (req, res) => {
       return;
     }
 
-    let { count = 200 } = req.query;
+    let { count = 200, ticketType = 'NORMAL' } = req.query;
     count = Math.min(Math.max(parseInt(count), 1), 1000);
+
+    // Normalize and validate ticket type
+    ticketType = ticketType.toString().toUpperCase().trim() || 'NORMAL';
+    if (!['VIP', 'NORMAL'].includes(ticketType)) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'error',
+          message: 'Invalid ticketType. Use VIP or NORMAL.',
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    // Reset counter if database is empty to restart numbering at 1
+    const totalTickets = await Ticket.countDocuments();
+    if (totalTickets === 0) {
+      await setCounter('ticketNo', 0);
+    }
+
+    // Enforce ticket type limits
+    const typeCount = await Ticket.countDocuments({ ticketType });
+    const limit = ticketType === 'VIP' ? 90 : 410;
+    if (typeCount + count > limit) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'error',
+          message: `Limite ${ticketType} dépassée. Max ${limit}, actuels ${typeCount}.`,
+        })}\n\n`
+      );
+      res.end();
+      return;
+    }
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -727,7 +647,7 @@ app.get('/generate-tickets-stream', async (req, res) => {
         ticketsToInsert.push({
           ticketNo,
           code: Math.floor(100000 + Math.random() * 900000).toString(),
-          ticketType: 'NORMAL',
+          ticketType,
         });
       }
 
@@ -786,10 +706,21 @@ app.get('/generate-tickets-stream', async (req, res) => {
  */
 app.post('/generate-tickets', adminAuth, async (req, res) => {
   try {
-    let { count = 200 } = req.body;
+    let { count = 200, ticketType = 'NORMAL' } = req.body;
     count = Math.min(Math.max(parseInt(count), 1), 1000); // Clamp between 1 and 1000
+    ticketType = ticketType.toString().toUpperCase().trim() || 'NORMAL';
+
+    if (!['VIP', 'NORMAL'].includes(ticketType)) {
+      return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
+    }
 
     console.log(`Starting generation of ${count} tickets...`);
+
+    // Reset counter if DB empty to start from 1
+    const totalTickets = await Ticket.countDocuments();
+    if (totalTickets === 0) {
+      await setCounter('ticketNo', 0);
+    }
 
     // Batch size for optimal performance
     const BATCH_SIZE = 100;
@@ -807,7 +738,7 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
         ticketsToInsert.push({
           ticketNo,
           code: Math.floor(100000 + Math.random() * 900000).toString(),
-          ticketType: 'NORMAL',
+          ticketType,
         });
       }
 

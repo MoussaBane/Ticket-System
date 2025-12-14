@@ -86,6 +86,7 @@ router.post(
             assignedTo: reservation.holderName,
             assignedEmail: reservation.holderEmail,
             reservationId: reservation._id,
+            ticketType: 'NORMAL',
           });
 
           // Generate PDF with QR code
