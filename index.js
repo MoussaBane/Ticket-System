@@ -225,6 +225,12 @@ app.get(
   roleAuth('admin', 'manager'),
   async (req, res) => {
     try {
+      // Check database connection
+      if (mongoose.connection.readyState !== 1) {
+        console.error('❌ Database not connected - readyState:', mongoose.connection.readyState);
+        return sendError(res, 'Database connection unavailable', 503);
+      }
+
       // Count all tickets
       const total = await Ticket.countDocuments();
       const assigned = await Ticket.countDocuments({ isAssigned: true });
@@ -280,7 +286,11 @@ app.get(
         'Statistiques récupérées avec succès'
       );
     } catch (err) {
-      console.error('Error fetching stats:', err);
+      console.error('❌ Error fetching stats:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
       return sendError(res, 'Server error while fetching statistics', 500, err.message);
     }
   }
@@ -948,13 +958,29 @@ app.get("/admin/export-csv", adminAuth, async (req, res) => {
 
 /**
  * GET /health
- * Health check endpoint
+ * Health check endpoint with database status
  */
-app.get("/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Server is running",
+app.get("/health", async (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
+  const isHealthy = dbState === 1;
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    success: isHealthy,
+    message: isHealthy ? "Server is running" : "Server is running but database unavailable",
     timestamp: new Date().toISOString(),
+    database: {
+      status: dbStatus[dbState] || 'unknown',
+      readyState: dbState,
+      connected: isHealthy
+    }
   });
 });
 
