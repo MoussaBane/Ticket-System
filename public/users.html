@@ -54,6 +54,36 @@
     </div>
   </div>
 
+  <!-- Modal Edit User -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier l'utilisateur</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nom</label>
+            <input type="text" class="form-control" id="editNom" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Prénom</label>
+            <input type="text" class="form-control" id="editPrenom" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="editEmail" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="button" class="btn btn-success" onclick="saveEdit()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Change Role -->
   <div class="modal fade" id="roleModal" tabindex="-1">
     <div class="modal-dialog">
@@ -143,6 +173,7 @@
     }
 
     let currentUserId = null;
+    const editModal = new bootstrap.Modal(document.getElementById('editModal'));
     const roleModal = new bootstrap.Modal(document.getElementById('roleModal'));
     const passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'));
 
@@ -165,11 +196,17 @@
             <td><span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'manager' ? 'warning' : 'secondary'}">${user.role}</span></td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
+              <button class="btn btn-sm btn-info" onclick="showEditModal('${user._id}', '${user.nom}', '${user.prenom}', '${user.email}')">
+                <i class="bi bi-pencil"></i> Modifier
+              </button>
               <button class="btn btn-sm btn-primary" onclick="showRoleModal('${user._id}', '${user.nom} ${user.prenom}', '${user.role}')">
                 <i class="bi bi-shield"></i> Rôle
               </button>
               <button class="btn btn-sm btn-warning" onclick="showPasswordModal('${user._id}', '${user.nom} ${user.prenom}')">
                 <i class="bi bi-key"></i> Mot de passe
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="deleteUser('${user._id}', '${user.nom} ${user.prenom}')">
+                <i class="bi bi-trash"></i> Supprimer
               </button>
             </td>
           `;
@@ -179,6 +216,14 @@
         console.error(err);
         alert('Erreur lors du chargement des utilisateurs');
       }
+    }
+
+    function showEditModal(userId, nom, prenom, email) {
+      currentUserId = userId;
+      document.getElementById('editNom').value = nom;
+      document.getElementById('editPrenom').value = prenom;
+      document.getElementById('editEmail').value = email;
+      editModal.show();
     }
 
     function showRoleModal(userId, name, currentRole) {
@@ -193,6 +238,36 @@
       document.getElementById('passwordUserName').textContent = name;
       document.getElementById('newPassword').value = '';
       passwordModal.show();
+    }
+
+    async function saveEdit() {
+      const nom = document.getElementById('editNom').value.trim();
+      const prenom = document.getElementById('editPrenom').value.trim();
+      const email = document.getElementById('editEmail').value.trim();
+
+      if (!nom || !prenom || !email) {
+        alert('Tous les champs sont requis');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/users/${currentUserId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ nom, prenom, email })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Utilisateur modifié avec succès');
+          editModal.hide();
+          loadUsers();
+        } else {
+          alert(data.message || 'Erreur');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erreur lors de la modification de l\'utilisateur');
+      }
     }
 
     async function saveRole() {
@@ -239,6 +314,29 @@
       } catch (err) {
         console.error(err);
         alert('Erreur lors de la réinitialisation du mot de passe');
+      }
+    }
+
+    async function deleteUser(userId, name) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur "${name}" ?\n\nCette action est irréversible.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/users/${userId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Utilisateur supprimé avec succès');
+          loadUsers();
+        } else {
+          alert(data.message || 'Erreur');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erreur lors de la suppression de l\'utilisateur');
       }
     }
 

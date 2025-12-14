@@ -318,6 +318,56 @@ router.put(
 );
 
 /**
+ * PUT /api/users/:id
+ * Update user information (admin only)
+ */
+router.put("/:id", verifyToken, roleAuth("admin"), async (req, res) => {
+  try {
+    const { nom, prenom, email } = req.body;
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return sendError(res, "User not found", 404);
+    }
+
+    // Validation
+    const errors = [];
+    if (nom !== undefined && nom.trim() === "") errors.push("Name cannot be empty");
+    if (prenom !== undefined && prenom.trim() === "") errors.push("First name cannot be empty");
+    if (email !== undefined) {
+      if (email.trim() === "") {
+        errors.push("Email cannot be empty");
+      } else {
+        // Check if email is already taken by another user
+        const existingUser = await User.findOne({ 
+          email: email.toLowerCase().trim(),
+          _id: { $ne: req.params.id }
+        });
+        if (existingUser) {
+          errors.push("Email is already taken");
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      return sendValidationError(res, errors);
+    }
+
+    // Update fields if provided
+    if (nom !== undefined) user.nom = nom.trim();
+    if (prenom !== undefined) user.prenom = prenom.trim();
+    if (email !== undefined) user.email = email.toLowerCase().trim();
+
+    await user.save();
+
+    return sendSuccess(res, { user: { _id: user._id, nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } }, 200, "User updated successfully");
+  } catch (err) {
+    console.error("Error updating user:", err);
+    return sendError(res, "Server error while updating user", 500, err.message);
+  }
+});
+
+/**
  * DELETE /api/users/:id
  * Delete a user (admin only)
  */
