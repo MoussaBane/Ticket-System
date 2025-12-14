@@ -6,3 +6,13 @@ index_copy.html
 public/admin_copy.html
 models/User_copy.js
 models/Ticket_copy.js
+public/tickets/images/
+public/tickets/*.png
+*.log
+logs/
+.DS_Store
+Thumbs.db
+*.tmp
+coverage/
+*.local
+*.env*

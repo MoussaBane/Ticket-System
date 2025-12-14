@@ -1,12 +1,13 @@
 {
   "name": "ticket-system",
-  "version": "1.0.0",
-  "description": "Comprehensive event ticket management system with QR codes, PDF generation, and role-based access control",
+  "version": "4.1.0",
+  "description": "Comprehensive event ticket management system with VIP/NORMAL types, unified admin panel, QR codes, PDF generation, and role-based access control",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "nodemon index.js",
     "dev": "nodemon index.js",
     "seed:users": "node scripts/seedUsers.js",
+    "test:v4": "node scripts/testV4.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -21,7 +22,6 @@
   "author": "Moussa BANE",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -30,10 +30,10 @@
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
     "html5-qrcode": "^2.3.8",
+    "jimp": "^0.22.12",
     "jose": "^5.2.0",
     "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^8.14.0",
-    "mongoose-sequence": "^6.0.1",
     "nodemailer": "^6.9.4",
     "nodemon": "^3.1.9",
     "puppeteer": "^21.3.8",
@@ -45,4 +45,3 @@
     "npm": ">=6.0.0"
   }
 }
-

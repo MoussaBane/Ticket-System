@@ -6,6 +6,7 @@ const Reservation = require('../models/Reservation');
 const Ticket = require('../models/Ticket');
 const { generateTicketPdf } = require('../services/ticketPdfService');
 const { sendTicketMail } = require('../services/mailService');
+const { getNextSequence } = require("../services/counterService");
 const { sendSuccess, sendError } = require("../utils/responseUtils");
 
 /**
@@ -30,9 +31,9 @@ router.get(
       }
 
       const reservations = await Reservation.find(query)
-        .populate("createdBy", "nom prenom email")
-        .populate("ticketId", "code pdfUrl")
-        .sort({ createdAt: -1 });
+        .populate('createdBy', 'nom prenom email')
+        .populate('ticketId', 'code pdfUrl')
+        .sort({ createdAt: 1 });
 
       return sendSuccess(res, reservations, 200, "Reservations retrieved");
     } catch (err) {
@@ -74,13 +75,18 @@ router.post(
 
       for (const reservation of pending) {
         try {
+          // Get next ticket number
+          const ticketNo = await getNextSequence("ticketNo");
+
           // Create new ticket
           const ticket = new Ticket({
+            ticketNo,
             code: Math.floor(100000 + Math.random() * 900000).toString(),
             isAssigned: true,
             assignedTo: reservation.holderName,
             assignedEmail: reservation.holderEmail,
             reservationId: reservation._id,
+            ticketType: 'NORMAL',
           });
 
           // Generate PDF with QR code

@@ -21,13 +21,11 @@ async function generateTicketPdf(ticket) {
   }
 
   try {
-    // Generate QR code pointing to validation URL
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-    const validationUrl = `${baseUrl}/validate?code=${ticket.code}`;
-    const qrData = await QRCode.toDataURL(validationUrl);
+    // Generate QR code that encodes only the ticket code (no URL)
+    const qrData = await QRCode.toDataURL(ticket.code);
 
     // Render EJS template with ticket data
-    const templatePath = path.join(__dirname, "..", "views", "ticket.ejs");
+    const templatePath = path.join(__dirname, '..', 'views', 'ticket.ejs');
 
     if (!fs.existsSync(templatePath)) {
       throw new Error(`Ticket template not found at ${templatePath}`);
@@ -35,36 +33,36 @@ async function generateTicketPdf(ticket) {
 
     const html = await ejs.renderFile(templatePath, {
       code: ticket.code,
-      assignedTo: ticket.assignedTo || "GUEST",
+      assignedTo: ticket.assignedTo || 'GUEST',
       qrData,
-      backgroundUrl: process.env.TICKET_BACKGROUND_URL || "/background.png",
+      backgroundUrl: process.env.TICKET_BACKGROUND_URL || '/background.png',
     });
 
     // Launch Puppeteer and generate PDF
     const browser = await puppeteer.launch({
-      headless: "new", // Use new headless mode
-      args: ["--no-sandbox", "--disable-setuid-sandbox"], // For server environments
+      headless: 'new', // Use new headless mode
+      args: ['--no-sandbox', '--disable-setuid-sandbox'], // For server environments
     });
 
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
 
     // Generate PDF with A6 format (small ticket size)
     const pdfBuffer = await page.pdf({
-      format: "A6",
+      format: 'A6',
       printBackground: true,
       margin: {
-        top: "0.25in",
-        right: "0.25in",
-        bottom: "0.25in",
-        left: "0.25in",
+        top: '0.25in',
+        right: '0.25in',
+        bottom: '0.25in',
+        left: '0.25in',
       },
     });
 
     await browser.close();
 
     // Save PDF to public folder
-    const ticketsDir = path.join(__dirname, "..", "public", "tickets");
+    const ticketsDir = path.join(__dirname, '..', 'public', 'tickets');
 
     if (!fs.existsSync(ticketsDir)) {
       fs.mkdirSync(ticketsDir, { recursive: true });

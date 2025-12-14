@@ -7,7 +7,7 @@ A comprehensive event ticket management system built with Node.js, Express, and 
 ### 🎟️ Ticket Management
 
 - **Bulk Ticket Generation**: Generate up to 1000 tickets at once
-- **Unique Code System**: Each ticket has a unique 8-digit code
+- **Unique Code System**: Each ticket has a unique 6-digit code
 - **QR Code Integration**: Automatic QR code generation for each ticket
 - **PDF Generation**: Generate beautiful PDF tickets with Puppeteer (A6 size)
 - **Ticket Assignment**: Assign tickets to individuals with tracking
@@ -730,7 +730,7 @@ erDiagram
 ### Ticket Schema
 ```javascript
 {
-  code: String,           // Unique 8-digit code
+  code: String,           // Unique 6-digit code
   isUsed: Boolean,        // Ticket usage status
   isAssigned: Boolean,    // Assignment status
   assignedTo: String,     // Person assigned to

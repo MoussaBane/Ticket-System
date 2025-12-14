@@ -2,6 +2,244 @@
 
 All significant changes made to improve code quality, security, and maintainability.
 
+## [4.1.0] - December 13, 2024
+
+### 🔴 BREAKING CHANGE - Normal Role Restriction
+
+#### 🔒 Security Enhancement
+
+##### Normal Role Behavior Changed
+
+- **Previous Behavior**: Users with "normal" role could access the admin panel and assign tickets
+- **New Behavior**: Users with "normal" role have **NO ACCESS** to the system
+  - Automatically redirected to `/pending.html`
+  - Must wait for admin validation
+  - Cannot perform any operations
+
+##### New Pending Page
+
+- **File**: `public/pending.html` (NEW)
+  - Waiting page for users with "normal" role
+  - Displays user information (email, name)
+  - Clear instructions on what to do next
+  - Auto-refresh every 30 seconds to detect role changes
+  - Automatic redirect when role is updated by admin
+  - Logout button available
+
+##### Admin Panel Update
+
+- **File**: `public/admin.html` (MODIFIED)
+  - Added role check on initialization
+  - Redirects "normal" users to `/pending.html`
+  - Only "admin" and "manager" roles can access
+
+##### Documentation
+
+- **File**: `ROLES_V4.1.md` (NEW)
+  - Complete documentation of role system
+  - Workflow for user activation
+  - Admin guide for managing pending users
+  - FAQ and troubleshooting
+
+#### 📋 Role Hierarchy (Updated)
+
+1. **Admin**: Full access (unchanged)
+2. **Manager**: Operational access (unchanged)
+3. **Normal**: ❌ No access - Pending validation
+
+#### 🎯 User Activation Workflow
+
+```
+1. User registers → Account created with "normal" role
+2. User sees pending.html → "Waiting for admin validation"
+3. Admin goes to users.html → Changes role to "manager" or "admin"
+4. User refreshes → Automatically redirected to admin.html
+```
+
+#### 🔐 Backend Security
+
+- No changes required - routes already protected with `roleAuth("admin", "manager")`
+- "normal" role was already excluded from sensitive operations
+- Frontend redirection adds additional layer of security
+
+---
+
+## [4.0.0] - December 13, 2024
+
+### 🎉 MAJOR RELEASE - Unified Panel & Ticket Types
+
+#### 🆕 New Features
+
+##### Ticket Types System
+
+- **VIP Tickets**: Added VIP ticket type with 90 ticket limit
+  - Gold gradient badge with star icon
+  - Dedicated assignment section
+  - Real-time progress bar
+  
+- **NORMAL Tickets**: Standard ticket type with 410 ticket limit
+  - Blue gradient badge
+  - Dedicated assignment section
+  - Real-time progress bar
+
+##### Unified Admin Panel
+
+- **Single Interface**: Merged admin and manager panels into one
+  - `admin.html` now serves all roles (admin, manager, normal)
+  - Removed separate `manager.html` page
+  - Role-based UI controls (admin-only features hidden for non-admins)
+
+##### Automatic Assignment
+
+- **Self-Assignment**: Tickets now auto-assign to logged-in user
+  - User name extracted from JWT token
+  - No more manual name input required
+  - Only requires: ticket type (VIP/NORMAL) and count
+
+##### Enhanced Traceability
+
+- **Assignment Tracking**: New `assignedBy` field in Ticket model
+  - References the User who assigned the ticket
+  - Displayed in "Assigned By" column
+  - Included in CSV exports
+
+##### Statistics Dashboard
+
+- **Real-time Stats**: New `/admin/tickets/stats/summary` endpoint
+  - Total tickets count
+  - VIP: assigned/limit/remaining/used
+  - NORMAL: assigned/limit/remaining/used
+  - Overall used count
+
+##### Bulk Assignment
+
+- **Mass Assignment**: New `/admin/tickets/assign-bulk` endpoint
+  - Assign multiple tickets at once
+  - Validates against VIP/NORMAL limits
+  - Supports up to 100 tickets per request
+
+#### 🔧 Model Changes
+
+##### Ticket Schema Updates
+
+- **ticketType**: String field (VIP/NORMAL, default: NORMAL)
+- **assignedBy**: ObjectId reference to User model
+- Both fields indexed for performance
+
+#### 🎨 UI/UX Improvements
+
+##### Modern Interface
+
+- **Statistics Cards**: 4 prominent cards showing key metrics
+  - Total Tickets
+  - VIP (with progress bar)
+  - NORMAL (with progress bar)
+  - Present count
+
+- **Assignment Section**: Two side-by-side cards
+  - VIP assignment with gold gradient button
+  - NORMAL assignment with blue gradient button
+  - Shows remaining tickets for each type
+
+- **Enhanced Table**: Additional columns
+  - Type column with styled badges
+  - Assigned By column showing user name
+  - Improved visual hierarchy
+
+- **Advanced Filters**
+  - Filter by type (VIP/NORMAL)
+  - Filter by status (assigned/unassigned/used)
+  - Text search by code or name
+
+##### Visual Design
+
+- **VIP Badge**: Gold gradient (#fbbf24 to #f59e0b) with star icon
+- **NORMAL Badge**: Blue gradient (#60a5fa to #3b82f6)
+- **Progress Bars**: 8px height with rounded corners
+- **Role Badges**: Color-coded by role (admin: red, manager: purple)
+
+#### 🔒 Security & Permissions
+
+##### Role-Based Access Control
+
+- **Admin**: Full access (generate, delete, manage users)
+- **Manager**: Assign tickets, view all, export CSV
+- **Normal**: Assign tickets, view all, export CSV
+
+##### UI Security
+
+- Admin-only controls hidden for non-admin users
+- Frontend checks JWT payload for role
+- Backend validates on every request
+
+#### 📊 API Changes
+
+##### New Endpoints
+
+- `GET /admin/tickets/stats/summary` - Get comprehensive statistics
+- `POST /admin/tickets/assign-bulk` - Bulk ticket assignment
+
+##### Modified Endpoints
+
+- `PUT /admin/tickets/:id/assign` - Now requires `ticketType` instead of `assignedTo`
+- `GET /admin/tickets` - Now populates `assignedBy` field
+- `GET /admin/export-csv` - Includes `ticketType` and `assignedBy` columns
+
+#### 📝 Documentation
+
+##### New Documents
+
+- **ARCHITECTURE_V4.md**: Complete technical documentation
+- **CHANGEMENTS_V4.md**: Migration guide and changes summary
+- **RECAPITULATIF_V4.md**: Comprehensive recap and user guide
+
+##### Updated Documents
+
+- **QUICK_START.md**: Updated access points and workflow
+- **package.json**: Added `test:v4` script
+
+##### New Scripts
+
+- **scripts/testV4.js**: Automated testing for v4 features
+
+#### 🧹 Cleanup
+
+- **Backup**: Old `admin.html` saved as `admin.html.old`
+- **Removed**: Separate manager interface concept
+
+#### ⚙️ Technical Details
+
+##### Database
+
+- Backwards compatible with existing tickets
+- Old tickets default to `ticketType: 'NORMAL'`
+- `assignedBy` field null for pre-v4 tickets
+
+##### Performance
+
+- Indexed `ticketType` and `assignedBy` fields
+- Efficient population queries
+- Optimized statistics endpoint
+
+##### Validation
+
+- VIP limit: 90 tickets
+- NORMAL limit: 410 tickets
+- Bulk assignment max: 100 tickets per request
+- Server-side limit enforcement
+
+#### 🐛 Bug Fixes
+
+- Fixed pagination issues with filtered data
+- Improved toast notification timing
+- Better error messages for limit violations
+
+#### 📦 Dependencies
+
+No new dependencies added - uses existing stack
+
+---
+
 ## [1.0.0] - December 2024
 
 ### 🆕 New Features
