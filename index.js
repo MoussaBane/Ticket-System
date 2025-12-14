@@ -217,14 +217,27 @@ app.get(
   roleAuth('admin', 'manager'),
   async (req, res) => {
     try {
+      // Count all tickets
       const total = await Ticket.countDocuments();
       const assigned = await Ticket.countDocuments({ isAssigned: true });
       const used = await Ticket.countDocuments({ isUsed: true });
-      const vipTotal = await Ticket.countDocuments({ ticketType: 'VIP' });
-      const normalTotal = await Ticket.countDocuments({ ticketType: 'NORMAL' });
+
+      // Count UNKNOWN tickets (not yet assigned a type)
+      const unknownTotal = await Ticket.countDocuments({ ticketType: 'UNKNOWN' });
+      const unknownUsed = await Ticket.countDocuments({ ticketType: 'UNKNOWN', isUsed: true });
+
+      // Count VIP tickets (filter for valid VIP type)
+      const vipTotal = await Ticket.countDocuments({
+        ticketType: 'VIP',
+      });
       const vipUsed = await Ticket.countDocuments({
         ticketType: 'VIP',
         isUsed: true,
+      });
+
+      // Count NORMAL tickets (filter for valid NORMAL type)
+      const normalTotal = await Ticket.countDocuments({
+        ticketType: 'NORMAL',
       });
       const normalUsed = await Ticket.countDocuments({
         ticketType: 'NORMAL',
@@ -238,6 +251,10 @@ app.get(
           assigned,
           available: total - assigned,
           used,
+          unknown: {
+            total: unknownTotal,
+            used: unknownUsed,
+          },
           vip: {
             total: vipTotal,
             limit: 90,
@@ -341,15 +358,37 @@ app.put(
     try {
       const { ticketType } = req.body;
 
+      // Validate ticketType
       if (!ticketType || !['VIP', 'NORMAL'].includes(ticketType)) {
         return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
       }
 
+      // Validate ticket ID
+      if (!req.params.id || req.params.id.trim() === '') {
+        return sendValidationError(res, 'Ticket ID is required');
+      }
+
       // Get user info from token
       const userId = req.user.id;
+      if (!userId) {
+        console.error('Error: User ID not found in token. Token payload:', req.user);
+        return sendError(res, 'User information not available', 401);
+      }
+
       const userName =
         req.user.nom && req.user.prenom ? `${req.user.prenom} ${req.user.nom}` : req.user.email;
 
+      if (!userName) {
+        return sendError(res, 'User name or email not found', 401);
+      }
+
+      // Check if ticket exists
+      const existingTicket = await Ticket.findById(req.params.id);
+      if (!existingTicket) {
+        return sendError(res, 'Ticket not found', 404);
+      }
+
+      // Update ticket
       const ticket = await Ticket.findByIdAndUpdate(
         req.params.id,
         {
@@ -361,10 +400,6 @@ app.put(
         },
         { new: true }
       );
-
-      if (!ticket) {
-        return sendError(res, 'Ticket not found', 404);
-      }
 
       return sendSuccess(res, ticket.toObject(), 200, `Ticket ${ticketType} assigned successfully`);
     } catch (err) {
@@ -420,9 +455,9 @@ app.post(
         return sendValidationError(res, 'Ticket type is required (VIP or NORMAL)');
       }
 
-      // Check limits
-      const vipCount = await Ticket.countDocuments({ ticketType: 'VIP' });
-      const normalCount = await Ticket.countDocuments({ ticketType: 'NORMAL' });
+      // Check limits (count already assigned + those to be assigned)
+      const vipCount = await Ticket.countDocuments({ ticketType: 'VIP', isAssigned: true });
+      const normalCount = await Ticket.countDocuments({ ticketType: 'NORMAL', isAssigned: true });
 
       if (ticketType === 'VIP' && vipCount + count > 90) {
         return sendError(
@@ -445,8 +480,11 @@ app.post(
       const userName =
         req.user.nom && req.user.prenom ? `${req.user.prenom} ${req.user.nom}` : req.user.email;
 
-      // Find unassigned tickets
-      const unassignedTickets = await Ticket.find({ isAssigned: false }).limit(count);
+      // Find unassigned tickets with UNKNOWN type (newly created tickets)
+      const unassignedTickets = await Ticket.find({
+        isAssigned: false,
+        ticketType: 'UNKNOWN',
+      }).limit(count);
 
       if (unassignedTickets.length < count) {
         return sendError(res, `Only ${unassignedTickets.length} unassigned tickets available`, 400);
@@ -584,12 +622,12 @@ app.get('/generate-tickets-stream', async (req, res) => {
     const rawType = (ticketType ?? '').toString().trim();
     const upperType = rawType.toUpperCase();
     if (!rawType || upperType === 'N/A' || upperType === 'NA') {
-      ticketType = ' ';
+      ticketType = 'UNKNOWN';
     } else {
       ticketType = upperType;
     }
 
-    if (!['VIP', 'NORMAL', ' '].includes(ticketType)) {
+    if (!['VIP', 'NORMAL', 'UNKNOWN'].includes(ticketType)) {
       res.write(
         `data: ${JSON.stringify({
           type: 'error',
@@ -734,12 +772,12 @@ app.post('/generate-tickets', adminAuth, async (req, res) => {
     const rawType = (ticketType ?? '').toString().trim();
     const upperType = rawType.toUpperCase();
     if (!rawType || upperType === 'N/A' || upperType === 'NA') {
-      ticketType = ' ';
+      ticketType = 'UNKNOWN';
     } else {
       ticketType = upperType;
     }
 
-    if (!['VIP', 'NORMAL', ' '].includes(ticketType)) {
+    if (!['VIP', 'NORMAL', 'UNKNOWN'].includes(ticketType)) {
       return sendValidationError(res, 'Ticket type must be VIP, NORMAL, or left empty');
     }
 

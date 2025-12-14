@@ -66,7 +66,7 @@ router.post(
             assignedTo: reservation.holderName,
             assignedEmail: reservation.holderEmail,
             reservationId: reservation._id,
-            ticketType: 'NORMAL',
+            ticketType: 'UNKNOWN',
           });
 
           // Save ticket to database

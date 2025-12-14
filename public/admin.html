@@ -321,6 +321,7 @@
           <option value="all">Tous types</option>
           <option value="VIP">VIP</option>
           <option value="NORMAL">Normal</option>
+                  <option value="UNKNOWN">Non assigné (UNKNOWN)</option>
         </select>
       </div>
       <div class="col-6 col-md-3 col-lg-2">
@@ -550,7 +551,9 @@
             <td><code>${ticket.code}</code></td>
             <td>${ticket.ticketType === 'VIP' 
               ? '<span class="vip-badge"><i class="bi bi-star-fill"></i> VIP</span>' 
-              : '<span class="normal-badge">NORMAL</span>'}
+              : ticket.ticketType === 'NORMAL'
+                ? '<span class="normal-badge">NORMAL</span>'
+                : '<span class="badge bg-warning text-dark">UNKNOWN</span>'}
             </td>
             <td>${ticket.isUsed 
               ? '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Présent</span>' 
@@ -565,7 +568,7 @@
               <div class="btn-group btn-group-sm">
                 ${!ticket.isAssigned ? `<button class="btn btn-sm btn-primary" onclick="showAssignModal('${ticket._id}')"><i class="bi bi-person-plus"></i></button>` : ''}
                 ${ticket.isAssigned && !ticket.isUsed ? `<button class="btn btn-sm btn-success" onclick="validateTicket('${ticket._id}')"><i class="bi bi-check-lg"></i></button>` : ''}
-                ${ticket.isAssigned ? `<button class="btn btn-sm ${ticket.isDownloaded ? 'btn-secondary' : 'btn-info'}" onclick="downloadTicketImage('${ticket.code}', '${ticket.ticketType}')" ${ticket.isDownloaded ? 'disabled' : ''}><i class="bi bi-download"></i>${ticket.isDownloaded ? ' Téléchargé' : ''}</button>` : ''}
+                ${ticket.isAssigned && ticket.ticketType !== 'UNKNOWN' ? `<button class="btn btn-sm ${ticket.isDownloaded ? 'btn-secondary' : 'btn-info'}" onclick="downloadTicketImage('${ticket.code}', '${ticket.ticketType}')" ${ticket.isDownloaded ? 'disabled' : ''}><i class="bi bi-download"></i>${ticket.isDownloaded ? ' Téléchargé' : ''}</button>` : ''}
               </div>
             </td>
           </tr>
@@ -652,7 +655,10 @@
 
     const showAssignModal = (ticketId) => {
       document.getElementById('assignTicketId').value = ticketId;
-      new bootstrap.Modal(document.getElementById('assignModal')).show();
+      const modal = new bootstrap.Modal(document.getElementById('assignModal'));
+      modal.show();
+      // Ensure focus is moved to modal
+      document.getElementById('assignTicketType').focus();
     };
 
     const confirmAssignSingle = async () => {
@@ -675,7 +681,15 @@
           throw new Error(result.message || 'Erreur lors de l\'assignation');
         }
 
-        bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
+        const modalElement = document.getElementById('assignModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+          modal.hide();
+        }
+        
+        // Clear modal focus
+        document.activeElement?.blur?.();
+        
         showToast('success', result.message);
         await Promise.all([loadStats(), loadTickets()]);
       } catch (error) {
@@ -706,6 +720,10 @@
     };
 
     const downloadTicketImage = async (code, ticketType) => {
+              if (ticketType === 'UNKNOWN') {
+                showToast('warning', 'Ce ticket n\'a pas encore de type défini. Veuillez l\'assigner d\'abord.');
+                return;
+              }
       try {
         const template = ticketType === 'VIP' ? 'vip' : 'normal';
         const response = await fetch(`/api/users/my-tickets/download/${code}?template=${template}`, {

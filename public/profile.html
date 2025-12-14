@@ -28,7 +28,7 @@
       <div class="col-md-8">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h1><i class="bi bi-person-circle"></i> Mon Profil</h1>
-          <a href="/admin.html" class="btn btn-outline-light"><i class="bi bi-arrow-left"></i> Retour</a>
+          <a href="/" class="btn btn-outline-light"><i class="bi bi-arrow-left"></i> Retour</a>
         </div>
 
         <div class="card mb-4">
@@ -37,26 +37,28 @@
             <form id="profileForm">
               <div class="mb-3">
                 <label class="form-label">Nom</label>
-                <input type="text" class="form-control" id="nom" required>
+                <input type="text" class="form-control" id="nom" readonly>
               </div>
               <div class="mb-3">
                 <label class="form-label">Prénom</label>
-                <input type="text" class="form-control" id="prenom" required>
+                <input type="text" class="form-control" id="prenom" readonly>
               </div>
               <div class="mb-3">
                 <label class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" required>
+                <input type="email" class="form-control" id="email" readonly>
               </div>
               <div class="mb-3">
                 <label class="form-label">Rôle</label>
                 <input type="text" class="form-control" id="role" disabled>
               </div>
-              <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Mettre à jour le profil</button>
+              <div id="editButton" style="display: none;">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Mettre à jour le profil</button>
+              </div>
             </form>
           </div>
         </div>
 
-        <div class="card">
+        <div class="card" id="passwordSection" style="display: none;">
           <div class="card-body">
             <h5 class="card-title">Changer le mot de passe</h5>
             <form id="passwordForm">
@@ -123,11 +125,24 @@
         });
         if (res.status === 401) return window.location.href = '/admin-auth.html';
         const data = await res.json();
-        if (data.success && data.user) {
-          document.getElementById('nom').value = data.user.nom || '';
-          document.getElementById('prenom').value = data.user.prenom || '';
-          document.getElementById('email').value = data.user.email || '';
-          document.getElementById('role').value = data.user.role || '';
+        if (data.success && data.data.user) {
+          const user = data.data.user;
+          document.getElementById('nom').value = user.nom || '';
+          document.getElementById('prenom').value = user.prenom || '';
+          document.getElementById('email').value = user.email || '';
+          document.getElementById('role').value = user.role || '';
+
+          // Enable editing only for manager and admin
+          if (user.role === 'manager' || user.role === 'admin') {
+            document.getElementById('nom').removeAttribute('readonly');
+            document.getElementById('prenom').removeAttribute('readonly');
+            document.getElementById('email').removeAttribute('readonly');
+            document.getElementById('editButton').style.display = 'block';
+            document.getElementById('passwordSection').style.display = 'block';
+          } else {
+            // Normal users: read-only profile
+            document.getElementById('passwordSection').style.display = 'none';
+          }
         }
       } catch (err) {
         console.error(err);
@@ -199,11 +214,24 @@
       });
       if (res.status === 401) return window.location.href = '/admin-auth.html';
       const data = await res.json();
-      if (data.success && data.user) {
-        document.getElementById('nom').value = data.user.nom || '';
-        document.getElementById('prenom').value = data.user.prenom || '';
-        document.getElementById('email').value = data.user.email || '';
-        document.getElementById('role').value = data.user.role || '';
+      if (data.success && data.data.user) {
+        const user = data.data.user;
+        document.getElementById('nom').value = user.nom || '';
+        document.getElementById('prenom').value = user.prenom || '';
+        document.getElementById('email').value = user.email || '';
+        document.getElementById('role').value = user.role || '';
+
+        // Enable editing only for manager and admin
+        if (user.role === 'manager' || user.role === 'admin') {
+          document.getElementById('nom').removeAttribute('readonly');
+          document.getElementById('prenom').removeAttribute('readonly');
+          document.getElementById('email').removeAttribute('readonly');
+          document.getElementById('editButton').style.display = 'block';
+          document.getElementById('passwordSection').style.display = 'block';
+        } else {
+          // Normal users: read-only profile
+          document.getElementById('passwordSection').style.display = 'none';
+        }
       }
     }
 

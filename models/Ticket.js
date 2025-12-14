@@ -33,8 +33,8 @@ const ticketSchema = new mongoose.Schema(
     },
     ticketType: {
       type: String,
-      enum: ['VIP', 'NORMAL', ' '],
-      default: ' ',
+      enum: ['VIP', 'NORMAL', 'UNKNOWN'],
+      default: 'UNKNOWN',
       index: true,
     },
 

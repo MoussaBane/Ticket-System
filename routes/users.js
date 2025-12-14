@@ -40,9 +40,10 @@ router.get("/me", verifyToken, async (req, res) => {
 /**
  * GET /api/users/my-tickets/download/:code
  * Download an image of a ticket assigned to the current user.
+ * Only accessible by manager and admin roles.
  * Query: template=vip|normal (defaults to ticketType)
  */
-router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
+router.get("/my-tickets/download/:code", verifyToken, roleAuth("manager", "admin"), async (req, res) => {
   try {
     const { code } = req.params;
     const templateQuery = (req.query.template || "").toUpperCase();
@@ -130,9 +131,10 @@ router.get("/my-tickets/download/:code", verifyToken, async (req, res) => {
 /**
  * PUT /api/users/me
  * Update current user's profile (name, email) or password
+ * Only accessible by manager and admin roles.
  * Requires currentPassword to change password
  */
-router.put("/me", verifyToken, async (req, res) => {
+router.put("/me", verifyToken, roleAuth("manager", "admin"), async (req, res) => {
   try {
     const userId = req.user.id;
     const { nom, prenom, email, currentPassword, newPassword } = req.body;
