@@ -97,7 +97,7 @@ app.post('/validate-ticket', verifyToken, roleAuth('admin', 'manager'), async (r
         res,
         { usedAt: ticket.usedAt },
         200,
-        `Ticket already used on ${ticket.usedAt.toLocaleString()}`
+        `Ticket déjà utilisé le ${ticket.usedAt.toLocaleString()}`
       );
     }
 
@@ -106,7 +106,7 @@ app.post('/validate-ticket', verifyToken, roleAuth('admin', 'manager'), async (r
     ticket.usedAt = new Date();
     await ticket.save();
 
-    return sendSuccess(res, { ticket: ticket.toObject() }, 200, 'Ticket validated successfully');
+    return sendSuccess(res, { ticket: ticket.toObject() }, 200, 'Ticket validé avec succès !');
   } catch (err) {
     console.error('Error validating ticket:', err);
     return sendError(res, 'Server error while validating ticket', 500, err.message);
@@ -136,7 +136,7 @@ app.get('/validate', verifyToken, roleAuth('admin', 'manager'), async (req, res)
         res,
         { usedAt: ticket.usedAt },
         200,
-        `Ticket already used on ${ticket.usedAt.toLocaleString()}`
+        `Ticket déjà utilisé le ${ticket.usedAt.toLocaleString()}`
       );
     }
 
@@ -151,7 +151,7 @@ app.get('/validate', verifyToken, roleAuth('admin', 'manager'), async (req, res)
       res,
       { ticket: updatedTicket.toObject() },
       200,
-      'Ticket validated successfully'
+      'Ticket validé avec succès !'
     );
   } catch (err) {
     console.error('Error validating ticket:', err);
