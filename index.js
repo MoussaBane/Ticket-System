@@ -940,10 +940,7 @@ const connectDatabase = async () => {
     `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.pznxahw.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
   try {
-    await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(mongoUri);
     console.log("✅ MongoDB connected successfully");
   } catch (err) {
     console.error("❌ MongoDB connection error:", err.message);
