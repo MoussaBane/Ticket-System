@@ -648,16 +648,16 @@ app.post("/delete-all-tickets", adminAuth, async (req, res) => {
  * Query: ?count=200&token=<JWT>
  * Note: Token in query because EventSource doesn't support custom headers
  */
-app.get("/generate-tickets-stream", async (req, res) => {
+app.get('/generate-tickets-stream', async (req, res) => {
   try {
     // Verify token from query parameter (EventSource limitation)
     const token = req.query.token;
     if (!token) {
-      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
-          type: "error",
-          message: "No token provided",
+          type: 'error',
+          message: 'No token provided',
         })}\n\n`
       );
       res.end();
@@ -669,11 +669,11 @@ app.get("/generate-tickets-stream", async (req, res) => {
     try {
       decoded = await verifyJWT(token);
     } catch (err) {
-      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
-          type: "error",
-          message: "Invalid token",
+          type: 'error',
+          message: 'Invalid token',
         })}\n\n`
       );
       res.end();
@@ -681,12 +681,12 @@ app.get("/generate-tickets-stream", async (req, res) => {
     }
 
     // Check admin auth
-    if (decoded.role !== "admin") {
-      res.setHeader("Content-Type", "text/event-stream");
+    if (decoded.role !== 'admin') {
+      res.setHeader('Content-Type', 'text/event-stream');
       res.write(
         `data: ${JSON.stringify({
-          type: "error",
-          message: "Admin access required",
+          type: 'error',
+          message: 'Admin access required',
         })}\n\n`
       );
       res.end();
@@ -697,10 +697,10 @@ app.get("/generate-tickets-stream", async (req, res) => {
     count = Math.min(Math.max(parseInt(count), 1), 1000);
 
     // Set SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     console.log(`[SSE] Starting generation of ${count} tickets...`);
 
@@ -710,7 +710,7 @@ app.get("/generate-tickets-stream", async (req, res) => {
     // Send initial event
     res.write(
       `data: ${JSON.stringify({
-        type: "start",
+        type: 'start',
         count,
         timestamp: new Date().toISOString(),
       })}\n\n`
@@ -723,10 +723,11 @@ app.get("/generate-tickets-stream", async (req, res) => {
 
       // Prepare batch of tickets
       for (let i = 0; i < batchCount; i++) {
-        const ticketNo = await getNextSequence("ticketNo");
+        const ticketNo = await getNextSequence('ticketNo');
         ticketsToInsert.push({
           ticketNo,
           code: Math.floor(100000 + Math.random() * 900000).toString(),
+          ticketType: 'NORMAL',
         });
       }
 
@@ -737,7 +738,7 @@ app.get("/generate-tickets-stream", async (req, res) => {
       // Send progress event
       const progress = Math.round((generatedCount / count) * 100);
       const message = {
-        type: "progress",
+        type: 'progress',
         generated: generatedCount,
         total: count,
         progress,
@@ -746,9 +747,7 @@ app.get("/generate-tickets-stream", async (req, res) => {
       };
 
       res.write(`data: ${JSON.stringify(message)}\n\n`);
-      console.log(
-        `[SSE] Batch ${batch + 1}: ${generatedCount}/${count} (${progress}%)`
-      );
+      console.log(`[SSE] Batch ${batch + 1}: ${generatedCount}/${count} (${progress}%)`);
 
       // Small delay to allow client to receive events
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -757,7 +756,7 @@ app.get("/generate-tickets-stream", async (req, res) => {
     // Send completion event
     res.write(
       `data: ${JSON.stringify({
-        type: "complete",
+        type: 'complete',
         generated: generatedCount,
         total: count,
         progress: 100,
@@ -768,10 +767,10 @@ app.get("/generate-tickets-stream", async (req, res) => {
     console.log(`[SSE] ✓ Successfully generated ${generatedCount} tickets`);
     res.end();
   } catch (err) {
-    console.error("[SSE] Error generating tickets:", err);
+    console.error('[SSE] Error generating tickets:', err);
     res.write(
       `data: ${JSON.stringify({
-        type: "error",
+        type: 'error',
         message: err.message,
         timestamp: new Date().toISOString(),
       })}\n\n`
@@ -785,7 +784,7 @@ app.get("/generate-tickets-stream", async (req, res) => {
  * Generate bulk tickets with optimized batch processing
  * Request body: { count: number }
  */
-app.post("/generate-tickets", adminAuth, async (req, res) => {
+app.post('/generate-tickets', adminAuth, async (req, res) => {
   try {
     let { count = 200 } = req.body;
     count = Math.min(Math.max(parseInt(count), 1), 1000); // Clamp between 1 and 1000
@@ -804,10 +803,11 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
 
       // Prepare batch of tickets
       for (let i = 0; i < batchCount; i++) {
-        const ticketNo = await getNextSequence("ticketNo");
+        const ticketNo = await getNextSequence('ticketNo');
         ticketsToInsert.push({
           ticketNo,
           code: Math.floor(100000 + Math.random() * 900000).toString(),
+          ticketType: 'NORMAL',
         });
       }
 
@@ -817,9 +817,7 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
       generatedCount += batchResult.length;
 
       console.log(
-        `Batch ${batch + 1}: Generated ${
-          batchResult.length
-        } tickets (${generatedCount}/${count})`
+        `Batch ${batch + 1}: Generated ${batchResult.length} tickets (${generatedCount}/${count})`
       );
     }
 
@@ -836,13 +834,8 @@ app.post("/generate-tickets", adminAuth, async (req, res) => {
       `Generated ${generatedCount} tickets successfully`
     );
   } catch (err) {
-    console.error("Error generating tickets:", err);
-    return sendError(
-      res,
-      "Server error while generating tickets",
-      500,
-      err.message
-    );
+    console.error('Error generating tickets:', err);
+    return sendError(res, 'Server error while generating tickets', 500, err.message);
   }
 });
 
