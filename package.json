@@ -1,14 +1,15 @@
 {
   "name": "ticket-system",
-  "version": "4.1.0",
-  "description": "Comprehensive event ticket management system with VIP/NORMAL types, unified admin panel, QR codes, and role-based access control",
-  "main": "index.js",
+  "version": "5.0.0",
+  "description": "Professional event ticket management system with frontend/backend separation, VIP/NORMAL types, QR codes, and role-based access control",
+  "main": "backend/server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "seed:users": "node scripts/seedUsers.js",
-    "test:v4": "node scripts/testV4.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "backend": "node backend/server.js",
+    "backend:dev": "nodemon backend/server.js",
+    "seed:users": "node backend/scripts/seedUsers.js",
+    "test": "echo \"No tests specified\" && exit 1"
   },
   "keywords": [
     "ticket",
@@ -17,28 +18,30 @@
     "qrcode",
     "jwt",
     "mongodb",
-    "express"
+    "express",
+    "refactored",
+    "production-ready"
   ],
   "author": "Moussa BANE",
   "license": "ISC",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-rate-limit": "^7.5.0",
-    "express-session": "^1.18.1",
-    "html5-qrcode": "^2.3.8",
     "jimp": "^0.22.12",
     "jose": "^5.2.0",
     "json2csv": "^6.0.0-alpha.2",
     "mongoose": "^8.14.0",
-    "nodemon": "^3.1.9",
     "qrcode": "^1.5.4",
     "validator": "^13.15.0"
   },
-  "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0"
+  "devDependencies": {
+    "nodemon": "^3.1.9"
   }
 }
