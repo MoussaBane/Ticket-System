@@ -20,10 +20,7 @@ async function connectDatabase() {
 
     console.log(`[Database] Connecting to MongoDB...`);
 
-    const connection = await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const connection = await mongoose.connect(mongoUri);
 
     console.log(`[Database] Connected successfully: ${connection.connection.host}`);
     return connection;

@@ -11,8 +11,8 @@ const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
 
-  // Database
-  DB_URI: process.env.DB_URI,
+  // Database - Supports both DB_URI and DB_URL
+  DB_URI: process.env.DB_URI || process.env.DB_URL,
   DB_USERNAME: process.env.DB_USERNAME,
   DB_PASSWORD: process.env.DB_PASSWORD,
 
