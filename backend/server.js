@@ -26,6 +26,7 @@ async function startServer() {
     app.listen(PORT, () => {
       logger.info('Server', `✅ Server running at http://localhost:${PORT}`);
       logger.info('Server', `📊 Health: http://localhost:${PORT}/health`);
+      logger.info('Server', `🟢 Ready:  http://localhost:${PORT}/ready`);
       logger.info('Server', `🔧 Environment: ${config.NODE_ENV}`);
     });
 

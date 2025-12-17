@@ -64,10 +64,13 @@ A professional, production-ready event ticket management system with complete fr
 
 ## 📋 Prerequisites
 
-- **Node.js** >= 14.0.0
-- **npm** >= 6.0.0
+- **Node.js** >= 16.0.0
+- **npm** >= 8.0.0
 - **MongoDB** (Atlas or local instance)
-- **SMTP Email Service** (Gmail, SendGrid, etc.)
+
+## 🚀 Quick Start
+
+For production deployment, see **[PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md)**
 
 ## ⚙️ Installation & Setup
 

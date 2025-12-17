@@ -13,7 +13,7 @@ class AuthService {
    */
   async login(email, password) {
     const response = await this.api.post('/api/auth/login', { email, password });
-    
+
     if (response.success && response.data.data) {
       const { token, user } = response.data.data;
       this.api.setToken(token);
@@ -45,6 +45,13 @@ class AuthService {
   logout() {
     this.api.clearAuth();
     localStorage.removeItem('user');
+  }
+
+  /**
+   * Get authentication token
+   */
+  getToken() {
+    return this.api.getToken();
   }
 
   /**

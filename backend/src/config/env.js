@@ -10,11 +10,14 @@ const config = {
   PORT: process.env.PORT || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  TRUST_PROXY: process.env.TRUST_PROXY === 'true',
 
   // Database - Supports both DB_URI and DB_URL
   DB_URI: process.env.DB_URI || process.env.DB_URL,
   DB_USERNAME: process.env.DB_USERNAME,
   DB_PASSWORD: process.env.DB_PASSWORD,
+  DB_HOST: process.env.DB_HOST,
+  DB_NAME: process.env.DB_NAME,
 
   // JWT
   JWT_SECRET: process.env.JWT_SECRET,
@@ -28,6 +31,12 @@ const config = {
 
   // Features
   ENABLE_SEEDING: process.env.ENABLE_SEEDING === 'true',
+
+  // CORS
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 };
 
 /**

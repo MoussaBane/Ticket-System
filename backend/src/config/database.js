@@ -20,7 +20,11 @@ async function connectDatabase() {
 
     console.log(`[Database] Connecting to MongoDB...`);
 
-    const connection = await mongoose.connect(mongoUri);
+    const connection = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+      // Disable autoIndex in production for performance
+      autoIndex: config.NODE_ENV !== 'production',
+    });
 
     console.log(`[Database] Connected successfully: ${connection.connection.host}`);
     return connection;
@@ -34,15 +38,23 @@ async function connectDatabase() {
  * Build MongoDB connection string from username and password
  */
 function buildConnectionString() {
-  const { DB_USERNAME, DB_PASSWORD } = config;
+  const { DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME } = config;
 
   if (!DB_USERNAME || !DB_PASSWORD) {
     return null;
   }
 
-  // Using MongoDB Atlas or standard connection
-  // Adjust as needed for your environment
-  return `mongodb+srv://${DB_USERNAME}:${DB_PASSWORD}@cluster0.xxxxx.mongodb.net/ticket_system?retryWrites=true&w=majority`;
+  // Prefer explicit host/name when provided
+  if (DB_HOST && DB_NAME) {
+    return `mongodb+srv://${encodeURIComponent(DB_USERNAME)}:${encodeURIComponent(
+      DB_PASSWORD
+    )}@${DB_HOST}/${DB_NAME}?retryWrites=true&w=majority`;
+  }
+
+  // Fallback to default template; recommend using DB_URI in production
+  return `mongodb+srv://${encodeURIComponent(DB_USERNAME)}:${encodeURIComponent(
+    DB_PASSWORD
+  )}@cluster0.iele1xj.mongodb.net/?appName=Cluster0`;
 }
 
 /**

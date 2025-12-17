@@ -3,8 +3,8 @@ services:
     name: ticket-system
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: node index.js
+    buildCommand: npm install --production
+    startCommand: node backend/server.js
     envVars:
       - key: NODE_ENV
         value: production
