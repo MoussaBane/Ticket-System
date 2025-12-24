@@ -3,190 +3,293 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ticket System - Login</title>
-    <link rel="icon" type="image/jpeg" href="/assets/images/logo.jpg" />
+    <title>TicketSystem | Validation de billet</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/main.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
     <style>
-      .login-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      :root {
+        --primary-color: #6f42c1;
+        --secondary-color: #f8f9fa;
+      }
+
+      body {
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+          url("/background.jpg") no-repeat center center fixed;
+        background-size: cover;
+        color: white;
         min-height: 100vh;
       }
 
-      .login-card {
-        width: 100%;
-        max-width: 400px;
-        padding: 2rem;
+      .validation-card {
+        background-color: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        max-width: 600px;
+        margin: 0 auto;
       }
 
-      .login-header {
-        text-align: center;
-        margin-bottom: 2rem;
+      .btn-validate {
+        background-color: var(--primary-color);
+        border: none;
+        transition: all 0.3s;
       }
 
-      .login-logo {
-        width: 80px;
-        height: 80px;
-        margin-bottom: 1rem;
-        border-radius: 50%;
-        background: var(--primary-color);
+      .btn-validate:hover {
+        background-color: #5a32a8;
+        transform: translateY(-2px);
+      }
+
+      .result-container {
+        min-height: 100px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2rem;
-        margin-left: auto;
-        margin-right: auto;
       }
 
-      .login-header h1 {
-        font-size: 1.75rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
+      .admin-link {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
       }
 
-      .login-header p {
-        color: var(--text-muted);
-        font-size: 0.875rem;
-      }
-
-      .form-group {
-        margin-bottom: 1.5rem;
-      }
-
-      .form-label {
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: var(--text-color);
-      }
-
-      .btn-login {
-        width: 100%;
-        padding: 0.75rem;
-        font-weight: 600;
-        font-size: 1rem;
-      }
-
-      .error-message {
-        display: none;
-        margin-bottom: 1rem;
-      }
-
-      .loading {
-        display: none;
+      .qr-btn {
+        border-left: none !important;
       }
     </style>
   </head>
 
   <body>
-    <div class="login-container">
-      <div class="card login-card">
-        <div class="login-header">
-          <div class="login-logo">🎫</div>
-          <h1>Ticket System</h1>
-          <p>Event Ticket Management Platform</p>
+    <div class="container py-5">
+      <header class="text-center mb-5">
+        <img
+          src="/assets/images/logo.png"
+          alt="Logo AfroVibe"
+          class="img-fluid"
+          style="max-height: 120px"
+        />
+        <h1 class="mt-3">🎟️ AEEMT AfroVibe Night 🎟️</h1>
+        <p class="lead"><b>Validation de billets</b></p>
+      </header>
+
+      <div class="validation-card p-4 shadow-lg">
+        <div class="row justify-content-center">
+          <div class="col-md-8">
+            <div class="mb-3">
+              <label for="codeInput" class="form-label"
+                ><b>Entrez le code du billet</b></label
+              >
+              <div class="input-group">
+                <input
+                  type="text"
+                  id="codeInput"
+                  class="form-control form-control-lg"
+                  placeholder="Code à 8 caractères"
+                  required
+                />
+                <button
+                  class="btn btn-outline-secondary qr-btn"
+                  type="button"
+                  onclick="openQRScanner()"
+                >
+                  <i class="bi bi-qr-code-scan"></i>
+                </button>
+                <button
+                  class="btn btn-validate"
+                  type="button"
+                  onclick="valider()"
+                >
+                  <i class="bi bi-check-circle"></i> Valider
+                </button>
+              </div>
+              <div class="form-text text-white-50 mt-1">
+                <b>Entrez le code imprimé ou scannez le QR code</b>
+              </div>
+            </div>
+
+            <div id="result" class="result-container mt-4">
+              <!-- Résultat apparaîtra ici -->
+            </div>
+          </div>
         </div>
+      </div>
 
-        <form id="loginForm">
-          <div class="error-message" id="errorMessage" role="alert"></div>
+      <!-- Bouton Admin (en bas à droite) -->
+      <a
+        href="/pages/admin-auth.html"
+        class="btn btn-danger admin-link rounded-circle shadow"
+        title="Espace Admin"
+      >
+        <i class="bi bi-lock-fill" style="font-size: 1.5rem"></i>
+      </a>
+    </div>
 
-          <div class="form-group">
-            <label for="email" class="form-label">Email</label>
-            <input
-              type="email"
-              class="form-control"
-              id="email"
-              placeholder="admin@example.com"
-              required
-            />
+    <!-- Scanner QR Code Modal -->
+    <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Scanner un billet</h5>
+            <button
+              type="button"
+              class="btn-close btn-close-white"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
           </div>
-
-          <div class="form-group">
-            <label for="password" class="form-label">Mot de passe</label>
-            <input
-              type="password"
-              class="form-control"
-              id="password"
-              placeholder="Entrez votre mot de passe"
-              required
-            />
+          <div class="modal-body text-center">
+            <div id="qrReader" style="width: 100%"></div>
+            <div id="qrResult" class="mt-3"></div>
           </div>
-
-          <button type="submit" class="btn btn-primary btn-login">
-            <span class="loading">
-              <span class="spinner-border spinner-border-sm me-2"></span>Connexion...
-            </span>
-            <span class="normal">Se connecter</span>
-          </button>
-        </form>
-
-        <div class="mt-3 text-center">
-          <p class="text-muted" style="font-size: 0.875rem">
-            Démo: admin@example.com / AdminPass123
-          </p>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/api-client.js"></script>
-    <script src="js/services/auth-service.js"></script>
-    <script src="js/utils/notifications.js"></script>
-    <script src="js/utils/storage.js"></script>
-    <script src="js/main.js"></script>
-
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script>
-      document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+      // Fonction de validation améliorée
+      async function valider() {
+        const code = document.getElementById("codeInput").value.trim();
+        const resultDiv = document.getElementById("result");
 
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const errorDiv = document.getElementById('errorMessage');
-        const loadingSpan = document.querySelector('.loading');
-        const normalSpan = document.querySelector('.normal');
-        const submitBtn = document.querySelector('button[type="submit"]');
+        // Validation basique
+        if (!code || code.length !== 8) {
+          resultDiv.innerHTML = `
+                    <div class="alert alert-warning w-100">
+                        <i class="bi bi-exclamation-triangle"></i> Le code doit contenir exactement 8 caractères
+                    </div>
+                `;
+          return;
+        }
 
-        // Show loading
-        loadingSpan.style.display = 'inline';
-        normalSpan.style.display = 'none';
-        submitBtn.disabled = true;
-        errorDiv.style.display = 'none';
+        // Afficher le loader
+        resultDiv.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Validation en cours...</span>
+                    </div>
+                    <p>Validation en cours...</p>
+                </div>
+            `;
 
         try {
-          const result = await window.authService.login(email, password);
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `/api/tickets/validate?code=${encodeURIComponent(code)}`,
+            {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            }
+          );
 
-          if (result.success) {
-            NotificationManager.success('Connexion réussie!');
-            // Redirect based on role
-            const user = window.authService.getCurrentUser();
-            const redirectUrl =
-              user.role === 'admin' ? '/admin.html' : '/manager.html';
-            setTimeout(() => {
-              window.location.href = redirectUrl;
-            }, 500);
+          const data = await response.json();
+
+          if (data.success) {
+            const date = new Date(data.data.usedAt).toLocaleString();
+            resultDiv.innerHTML = `
+                        <div class="alert alert-success w-100" role="alert">
+                            <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Succès</h4>
+                            <p><b>${data.message}</b></p>
+                            <hr>
+                            <p class="mb-0"><small>Validé le: ${date}</small></p>
+                        </div>
+                    `;
           } else {
-            errorDiv.textContent = result.message || 'Connexion échouée';
-            errorDiv.className = 'alert alert-danger error-message';
-            errorDiv.style.display = 'block';
-            NotificationManager.error(result.message);
+            resultDiv.innerHTML = `
+                        <div class="alert alert-danger w-100" role="alert">
+                            <h4 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Erreur</h4>
+                            <p><b>${data.message || "Erreur lors de la validation"}</b></p>
+                        </div>
+                    `;
           }
         } catch (error) {
-          console.error('Login error:', error);
-          errorDiv.textContent = 'Une erreur est survenue';
-          errorDiv.className = 'alert alert-danger error-message';
-          errorDiv.style.display = 'block';
-          NotificationManager.error('Erreur de connexion');
-        } finally {
-          // Hide loading
-          loadingSpan.style.display = 'none';
-          normalSpan.style.display = 'inline';
-          submitBtn.disabled = false;
+          console.error("Erreur:", error);
+          resultDiv.innerHTML = `
+                    <div class="alert alert-danger w-100" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i> Erreur de connexion au serveur
+                    </div>
+                `;
         }
-      });
+      }
+
+      // Scanner QR Code Modal
+      const qrModal = new bootstrap.Modal(
+        document.getElementById("qrModal")
+      );
+
+      // Initialiser le scanner QR
+      let html5QrCode = null;
+
+      document
+        .getElementById("qrModal")
+        .addEventListener("shown.bs.modal", function () {
+          html5QrCode = new Html5Qrcode("qrReader");
+          const qrResult = document.getElementById("qrResult");
+
+          html5QrCode
+            .start(
+              { facingMode: "environment" },
+              { fps: 10, qrbox: 250 },
+              (decodedText) => {
+                qrResult.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-lg"></i> Code détecté: ${decodedText}
+                            </div>
+                        `;
+
+                // Remplir le champ et valider automatiquement
+                document.getElementById("codeInput").value = decodedText;
+                setTimeout(() => {
+                  valider();
+                  qrModal.hide();
+                }, 1000);
+              },
+              (errorMessage) => {
+                // Ignorer les erreurs de parsing
+              }
+            )
+            .catch((err) => {
+              qrResult.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Erreur: ${err}
+                    </div>
+                `;
+            });
+        });
+
+      // Arrêter le scanner quand le modal se ferme
+      document
+        .getElementById("qrModal")
+        .addEventListener("hidden.bs.modal", function () {
+          if (html5QrCode) {
+            html5QrCode
+              .stop()
+              .catch((err) => console.log("Arrêt du scanner:", err));
+          }
+          document.getElementById("qrResult").innerHTML = "";
+        });
+
+      // Fonction pour ouvrir le scanner QR
+      function openQRScanner() {
+        qrModal.show();
+      }
     </script>
   </body>
 </html>
